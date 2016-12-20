@@ -1,0 +1,11 @@
+*~
+*#
+target
+project/target
+project/project
+build
+opt
+*.swp
+submodules/gtkwave-svn
+TAGS
+tags
