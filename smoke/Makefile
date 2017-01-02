@@ -4,7 +4,8 @@ default: all
 src_dir = .
 
 tests = \
-	hello
+	hello \
+	cycle
 
 tests_p = $(addprefix $(ROCC)-p-, $(tests))
 
