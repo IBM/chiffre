@@ -32,10 +32,11 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val do_unknown = io.cmd.fire() & io.cmd.bits.inst.funct > f_CYCLE.U
 
   val s_ = Enum(UInt(), List('WAIT,
-    'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_GRANT, 'CYCLE_SCAN,
+    'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_SCAN,
     'RESP, 'ERROR))
   val state = Reg(init = s_('WAIT))
   val cycle_count = Reg(UInt(64.W))
+  val read_count = Reg(UInt(64.W))
   val cycles_to_scan = Reg(UInt(64.W))
   val ones_to_scan = Reg(UInt(64.W))
   val rd_d = Reg(UInt())
@@ -55,7 +56,8 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   when (do_cycle) {
     state := Mux(io.cmd.bits.status.vm === 0.U, s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
     cycle_count := 0.U
-    cycles_to_scan := io.cmd.bits.rs1
+    read_count := 0.U
+    cycles_to_scan := 0.U - 1.U
     ones_to_scan := io.cmd.bits.rs2
     printfInfo("LeChiffre: Cycling: addr 0x%x\n", io.cmd.bits.rs1)
   }
@@ -73,6 +75,27 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val gnt = io.autl.grant
   acq.valid := false.B
   gnt.ready := true.B
+
+  // Parallel-in, Serial-out handling
+  val piso = Module(new Piso(tlDataBits)).io
+  val reqSent = Reg(init = false.B)
+  piso.p.valid := reqSent & gnt.fire() & read_count =/= 0.U
+  piso.p.bits.data := gnt.bits.data
+  piso.p.bits.count := (tlDataBits - 1).U
+  io.SCAN_en := piso.s.valid
+  io.SCAN_out := piso.s.bits
+  val last = cycle_count === cycles_to_scan - 1.U
+  when (piso.s.valid) {
+    cycle_count := cycle_count + 1.U
+
+    f32Word := io.SCAN_out ## f32Word(15,1)
+    when (cycle_count(3,0) === 15.U || last) {
+      f32.io.data.valid := true.B
+      f32.io.data.bits.cmd := k_compute.U
+    }
+  }
+
+  // AUTL Acq/Gnt handling
   val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
   val utlDataPutVec = Wire(Vec(tlDataBits / xLen, UInt(xLen.W)))
   val addr_d = rs1_d
@@ -93,27 +116,34 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val getBlock = GetBlock(addr_block = addr_block, alloc = false.B)
   acq.bits := get
 
-  val reqSent = Reg(init = false.B)
-  def autlAcqGrant(nextState: UInt, cond: => Bool = true.B) = {
-    when (!reqSent) {
+  def autlAcqGrant(ready: Bool = true.B): Bool = {
+    val done = reqSent & gnt.fire()
+    when (!reqSent & ready) {
       acq.valid := true.B
       reqSent := acq.fire()
     }
-    when (gnt.fire()) {
+    when (done) {
       reqSent := false.B
-      state := Mux(cond, nextState, s_('ERROR))
     }
+    done
   }
   when (state === s_('CYCLE_READ)) {
-    autlAcqGrant(s_('ERROR))
-  }
-
-  when (state === s_('CYCLE_GRANT)) {
-    state := s_('ERROR)
+    when (autlAcqGrant(piso.p.ready)) {
+      read_count := read_count + xLen.U
+      addr_d := addr_d + (tlDataBits / 8).U
+      when (read_count === 0.U) {
+        cycles_to_scan := gnt.bits.data(31,0)
+        printfInfo("LeChiffre: Bits to scan: 0x%x\n", gnt.bits.data(31,0))
+      }
+      when (read_count >= cycles_to_scan) {
+        piso.p.bits.count := tlDataBits.U - read_count + cycles_to_scan - 1.U
+        state := s_('CYCLE_SCAN)
+      }
+    }
   }
 
   when (state === s_('CYCLE_SCAN)) {
-    state := s_('ERROR)
+    when (piso.p.ready) { state := s_('ERROR) }
     // val last = cycle_count === cycles_to_scan - 1.U
 
     // io.SCAN_en := true.B
@@ -157,11 +187,11 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
       acq.bits.addr_byte())
   }
 
-  when (state === s_('CYCLE_GRANT) & gnt.fire()) {
-    printfDebug("LeChiffre: autl.grant.fire   | data 0x%x, beat 0x%x\n",
+  when (reqSent && gnt.fire()) {
+    printfDebug("LeChiffre: autl.gnt | data 0x%x, beat 0x%x\n",
       gnt.bits.data, gnt.bits.addr_beat) }
 
-  when (state === s_('CYCLE_SCAN)) {
+  when (io.SCAN_en) {
     printfInfo("LeChifre: Scan[%d]: %d\n", cycle_count, io.SCAN_out)
   }
 
