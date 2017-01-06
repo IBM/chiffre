@@ -16,10 +16,9 @@
   ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 1, 0, f_ECHO);
 
 // Send COUNT ones and SIZE-COUNT zeros through the scan chain.
-#define LE_CHIFFRE_CYCLE(size, count, rd)                       \
-  li x1, size;                                                  \
-  li x2, count;                                                 \
-  ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 1, 2, f_CYCLE);
+#define LE_CHIFFRE_CYCLE(LABEL, rd)                             \
+  la x1, LABEL;                                                 \
+  ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 1, 0, f_CYCLE);
 
 #define LE_CHIFFRE_CHECK(checksum, rd)                          \
   li x1, checksum;                                              \
