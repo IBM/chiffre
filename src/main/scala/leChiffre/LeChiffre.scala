@@ -6,6 +6,7 @@ import chisel3.util._
 import rocket._
 import config._
 import perfect.util._
+import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 
 trait ScanChainIO {
   val SCAN_en = Output(Bool())
@@ -14,12 +15,11 @@ trait ScanChainIO {
 }
 
 class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
-    with LeChiffreH with FletcherH {
+    with LeChiffreH with FletcherH with HasTileLinkParameters {
   override lazy val io = new RoCCInterface with ScanChainIO
 
   io.busy := false.B
   io.interrupt := false.B
-  io.autl.acquire.valid := false.B
   io.mem.req.valid := false.B
 
   io.SCAN_en := false.B
@@ -27,8 +27,10 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val do_cycle = io.cmd.fire() & io.cmd.bits.inst.funct === f_CYCLE.U
   val do_unknown = io.cmd.fire() & io.cmd.bits.inst.funct > f_CYCLE.U
 
-  val s_WAIT :: s_CYCLE :: s_RESP :: s_ERROR :: Nil = Enum(UInt(), 4)
-  val state = Reg(init = s_WAIT)
+  val s_ = Enum(UInt(), List('WAIT,
+    'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_GRANT, 'CYCLE_SCAN,
+    'RESP, 'ERROR))
+  val state = Reg(init = s_('WAIT))
   val cycle_count = Reg(UInt(64.W))
   val cycles_to_scan = Reg(UInt(64.W))
   val ones_to_scan = Reg(UInt(64.W))
@@ -38,61 +40,128 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
 
   val f32 = Module(new Fletcher(32))
 
-  io.cmd.ready := state === s_WAIT
+  io.cmd.ready := state === s_('WAIT)
 
-  when (io.cmd.fire() && state === s_WAIT) {
+  when (io.cmd.fire() && state === s_('WAIT)) {
     rd_d := io.cmd.bits.inst.rd
     rs1_d := io.cmd.bits.rs1
     rs2_d := io.cmd.bits.rs2
   }
 
   when (do_cycle) {
-    state := s_CYCLE
+    state := Mux(io.cmd.bits.status.vm === 0.U, s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
     cycle_count := 0.U
     cycles_to_scan := io.cmd.bits.rs1
     ones_to_scan := io.cmd.bits.rs2
-    printfInfo("LeChiffre: Cycling: cycles %d, ones %d\n",
-      io.cmd.bits.rs1, io.cmd.bits.rs2)
+    printfInfo("LeChiffre: Cycling: addr 0x%x\n", io.cmd.bits.rs1)
   }
 
   val f32Word = Reg(UInt(16.W))
   f32.io.data.bits.word := io.SCAN_out ## f32Word(15,1)
   f32.io.data.valid := false.B
-  when (state === s_CYCLE) {
-    val last = cycle_count === cycles_to_scan - 1.U
 
-    io.SCAN_en := true.B
-    io.SCAN_out := cycle_count < ones_to_scan
-    cycle_count := cycle_count + 1.U
-    when (last) { state := s_RESP }
-
-    f32Word := io.SCAN_out ## f32Word(15,1)
-    when (cycle_count(3,0) === 15.U || last) {
-      f32.io.data.valid := true.B
-      f32.io.data.bits.cmd := k_compute.U
-    }
+  when (state === s_('CYCLE_TRANSLATE)) {
+    state := s_('ERROR)
+    printfError("LeChiffre: Address translation not implemented\n")
   }
 
-  io.resp.valid := state === s_RESP
-  when (state === s_RESP) {
+  val acq = io.autl.acquire
+  val gnt = io.autl.grant
+  acq.valid := false.B
+  gnt.ready := true.B
+  val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
+  val utlDataPutVec = Wire(Vec(tlDataBits / xLen, UInt(xLen.W)))
+  val addr_d = rs1_d
+  val addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset)
+  val addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits)
+  val addr_byte = addr_d(tlByteAddrBits - 1, 0)
+  val addr_word = tlDataBits compare xLen match {
+    case 1 => addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
+    case 0 => 0.U
+    case -1 => throw new Exception("XLen > tlByteAddrBits (this doesn't make sense!)")
+  }
+  val get = Get(client_xact_id = 0.U,
+    addr_block = addr_block,
+    addr_beat = addr_beat,
+    addr_byte = addr_byte,
+    operand_size = MT_D,
+    alloc = false.B)
+  val getBlock = GetBlock(addr_block = addr_block, alloc = false.B)
+  acq.bits := get
+
+  val reqSent = Reg(init = false.B)
+  def autlAcqGrant(nextState: UInt, cond: => Bool = true.B) = {
+    when (!reqSent) {
+      acq.valid := true.B
+      reqSent := acq.fire()
+    }
+    when (gnt.fire()) {
+      reqSent := false.B
+      state := Mux(cond, nextState, s_('ERROR))
+    }
+  }
+  when (state === s_('CYCLE_READ)) {
+    autlAcqGrant(s_('ERROR))
+  }
+
+  when (state === s_('CYCLE_GRANT)) {
+    state := s_('ERROR)
+  }
+
+  when (state === s_('CYCLE_SCAN)) {
+    state := s_('ERROR)
+    // val last = cycle_count === cycles_to_scan - 1.U
+
+    // io.SCAN_en := true.B
+    // io.SCAN_out := cycle_count < ones_to_scan
+    // cycle_count := cycle_count + 1.U
+    // when (last) { state := s_('RESP) }
+
+    // f32Word := io.SCAN_out ## f32Word(15,1)
+    // when (cycle_count(3,0) === 15.U || last) {
+    //   f32.io.data.valid := true.B
+    //   f32.io.data.bits.cmd := k_compute.U
+    // }
+  }
+
+  io.resp.valid := state === s_('RESP)
+  when (state === s_('RESP)) {
     io.resp.bits.data := f32.io.checksum
     io.resp.bits.rd := rd_d
-    state := s_WAIT
+    state := s_('WAIT)
 
     f32.io.data.valid := true.B
     f32.io.data.bits.cmd := k_reset.U
   }
 
-  when (io.cmd.fire()) { printfInfo("Chiffre: cmd 0x%x, rs1 0x%x, rs2 0x%x\n",
-    io.cmd.bits.inst.asUInt, io.cmd.bits.rs1, io.cmd.bits.rs2) }
+  when (state === s_('ERROR)) {
+  }
+
+  when (io.cmd.fire()) { printfInfo("LeChiffre: cmd 0x%x, rs1 0x%x, rs2 0x%x\n",
+    io.cmd.bits.inst.asUInt, io.cmd.bits.rs1, io.cmd.bits.rs2)
+    printfInfo("LeChiffre:   status 0x%x\n", io.cmd.bits.status.asUInt())
+    printfInfo("LeChiffre:    -> fs 0x%x\n", io.cmd.bits.status.fs)
+    printfInfo("LeChiffre:    -> xs 0x%x\n", io.cmd.bits.status.xs)
+    printfInfo("LeChiffre:    -> vm 0x%x\n", io.cmd.bits.status.vm)
+  }
   when (io.resp.fire()) { printfInfo("Chiffre: resp rd 0x%x, data 0x%x\n",
     io.resp.bits.rd, io.resp.bits.data) }
 
-  when (state === s_CYCLE) {
-    printfInfo("LeChifre: Cycle[%d]: %d\n", cycle_count, io.SCAN_out)
+  when (acq.fire()) {
+    printfInfo("LeChiffre: autl acq.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
+      acq.bits.a_type, addr_d, acq.bits.addr_block, acq.bits.addr_beat,
+      acq.bits.addr_byte())
+  }
+
+  when (state === s_('CYCLE_GRANT) & gnt.fire()) {
+    printfDebug("LeChiffre: autl.grant.fire   | data 0x%x, beat 0x%x\n",
+      gnt.bits.data, gnt.bits.addr_beat) }
+
+  when (state === s_('CYCLE_SCAN)) {
+    printfInfo("LeChifre: Scan[%d]: %d\n", cycle_count, io.SCAN_out)
   }
 
   // Catch all error states
-  when (do_unknown) { state := s_ERROR }
-  assert(state =/= s_ERROR, "[ERROR] LeChiffre: Hit error state\n")
+  when (do_unknown) { state := s_('ERROR) }
+  assert(RegNext(state) =/= s_('ERROR), "[ERROR] LeChiffre: Hit error state\n")
 }
