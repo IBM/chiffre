@@ -6,4 +6,7 @@
 	url = ../le-chiffre-tests
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
-	url = git@github.ibm.com:perfect/hdl-tools
+	url = ../hdl-tools
+[submodule "util/fault-injection"]
+	path = util/fault-injection
+	url = ../fault-injection
