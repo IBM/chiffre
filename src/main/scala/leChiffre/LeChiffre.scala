@@ -9,6 +9,7 @@ import perfect.util._
 import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 
 trait ScanChainIO {
+  val SCAN_clk = Output(Bool())
   val SCAN_en = Output(Bool())
   val SCAN_in = Input(Bool())
   val SCAN_out = Output(Bool())
@@ -22,7 +23,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   io.interrupt := false.B
   io.mem.req.valid := false.B
 
-  io.SCAN_en := false.B
+  io.SCAN_clk := false.B
 
   val ptw = io.ptw(0)
   ptw.req.bits.store := false.B
@@ -32,16 +33,18 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val do_unknown = io.cmd.fire() & io.cmd.bits.inst.funct > f_CYCLE.U
 
   val s_ = Enum(UInt(), List('WAIT,
-    'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_SCAN,
+    'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
     'RESP, 'ERROR))
   val state = Reg(init = s_('WAIT))
   val cycle_count = Reg(UInt(64.W))
   val read_count = Reg(UInt(64.W))
-  val cycles_to_scan = Reg(UInt(64.W))
+  val cycles_to_scan = Reg(UInt(32.W))
+  val checksum = Reg(UInt(32.W))
   val ones_to_scan = Reg(UInt(64.W))
   val rd_d = Reg(UInt())
   val rs1_d = Reg(UInt())
   val rs2_d = Reg(UInt())
+  val resp_d = Reg(UInt())
 
   val f32 = Module(new Fletcher(32))
 
@@ -82,7 +85,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   piso.p.valid := reqSent & gnt.fire() & read_count =/= 0.U
   piso.p.bits.data := gnt.bits.data
   piso.p.bits.count := (tlDataBits - 1).U
-  io.SCAN_en := piso.s.valid
+  io.SCAN_clk := piso.s.valid
   io.SCAN_out := piso.s.bits
   val last = cycle_count === cycles_to_scan - 1.U
   when (piso.s.valid) {
@@ -94,6 +97,9 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
       f32.io.data.bits.cmd := k_compute.U
     }
   }
+
+  // [TODO] Add a command to turn this on2
+  io.SCAN_en := false.B
 
   // AUTL Acq/Gnt handling
   val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
@@ -132,35 +138,26 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
       read_count := read_count + xLen.U
       addr_d := addr_d + (tlDataBits / 8).U
       when (read_count === 0.U) {
+        checksum := gnt.bits.data(63,32)
         cycles_to_scan := gnt.bits.data(31,0)
         printfInfo("LeChiffre: Bits to scan: 0x%x\n", gnt.bits.data(31,0))
+        printfInfo("LeChiffre: Checksum: 0x%x\n", gnt.bits.data(63,32))
       }
       when (read_count >= cycles_to_scan) {
         piso.p.bits.count := tlDataBits.U - read_count + cycles_to_scan - 1.U
-        state := s_('CYCLE_SCAN)
+        state := s_('CYCLE_QUIESCE)
       }
     }
   }
 
-  when (state === s_('CYCLE_SCAN)) {
-    when (piso.p.ready) { state := s_('ERROR) }
-    // val last = cycle_count === cycles_to_scan - 1.U
-
-    // io.SCAN_en := true.B
-    // io.SCAN_out := cycle_count < ones_to_scan
-    // cycle_count := cycle_count + 1.U
-    // when (last) { state := s_('RESP) }
-
-    // f32Word := io.SCAN_out ## f32Word(15,1)
-    // when (cycle_count(3,0) === 15.U || last) {
-    //   f32.io.data.valid := true.B
-    //   f32.io.data.bits.cmd := k_compute.U
-    // }
+  when (state === s_('CYCLE_QUIESCE)) {
+    when (piso.p.ready) { state := s_('RESP) }
+    resp_d := checksum =/= f32.io.checksum
   }
 
   io.resp.valid := state === s_('RESP)
   when (state === s_('RESP)) {
-    io.resp.bits.data := f32.io.checksum
+    io.resp.bits.data := resp_d
     io.resp.bits.rd := rd_d
     state := s_('WAIT)
 
@@ -191,8 +188,9 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     printfDebug("LeChiffre: autl.gnt | data 0x%x, beat 0x%x\n",
       gnt.bits.data, gnt.bits.addr_beat) }
 
-  when (io.SCAN_en) {
-    printfInfo("LeChifre: Scan[%d]: %d\n", cycle_count, io.SCAN_out)
+  when (io.SCAN_clk) {
+    printfInfo("LeChifre: Scan[%d]: %d, En: %d\n", cycle_count, io.SCAN_out,
+      io.SCAN_en)
   }
 
   // Catch all error states
