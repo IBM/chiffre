@@ -29,9 +29,10 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   ptw.req.bits.store := false.B
   ptw.req.bits.fetch := false.B
 
-  val do_echo = io.cmd.fire() & io.cmd.bits.inst.funct === f_ECHO.U
-  val do_cycle = io.cmd.fire() & io.cmd.bits.inst.funct === f_CYCLE.U
-  val do_unknown = io.cmd.fire() & io.cmd.bits.inst.funct > f_CYCLE.U
+  val do_echo    = io.cmd.fire() & io.cmd.bits.inst.funct === f_ECHO.U
+  val do_cycle   = io.cmd.fire() & io.cmd.bits.inst.funct === f_CYCLE.U
+  val do_enable  = io.cmd.fire() & io.cmd.bits.inst.funct === f_ENABLE.U
+  val do_unknown = io.cmd.fire() & io.cmd.bits.inst.funct  >  f_ENABLE.U
 
   val s_ = Enum(UInt(), List('WAIT,
     'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
@@ -71,6 +72,12 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     printfInfo("LeChiffre: Cycling: addr 0x%x\n", io.cmd.bits.rs1)
   }
 
+  io.SCAN_en := RegNext(do_enable)
+  when (do_enable) {
+    state := s_('RESP)
+    resp_d := 0.U
+  }
+
   val f32Word = Reg(UInt(16.W))
   f32.io.data.bits.word := io.SCAN_out ## f32Word(15,1)
   f32.io.data.valid := false.B
@@ -103,9 +110,6 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
       f32.io.data.bits.cmd := k_compute.U
     }
   }
-
-  // [TODO] Add a command to turn this on2
-  io.SCAN_en := false.B
 
   // AUTL Acq/Gnt handling
   val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
