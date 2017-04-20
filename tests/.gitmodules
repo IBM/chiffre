@@ -1,0 +1,3 @@
+[submodule "rocc-software"]
+	path = rocc-software
+	url = git@github.ibm.com:perfect/rocc-software
