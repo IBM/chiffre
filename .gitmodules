@@ -1,12 +1,12 @@
 [submodule "src/main/scala/perfect"]
 	path = src/main/scala/perfect
-	url = ../perfect-chisel
+	url = git@github.com:ibm/perfect-chisel
 [submodule "tests"]
 	path = tests
 	url = ../le-chiffre-tests
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
-	url = ../hdl-tools
+	url = git@github.com:ibm/hdl-tools
 [submodule "util/fault-injection"]
 	path = util/fault-injection
 	url = ../fault-injection
