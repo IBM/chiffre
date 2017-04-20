@@ -8,10 +8,10 @@
 #
 
 #include "riscv_test.h"
-#include "include/test_macros.h"
-#include "rocc-software/src/xcustom.h"
-#include "rocc-software/src/riscv_test_rocc.h"
-#include "include/le-chiffre.h"
+#include "../riscv-tools/riscv-tests/isa/macros/scalar/test_macros.h"
+#include "tests/rocc-software/src/xcustom.h"
+#include "tests/rocc-software/src/riscv_test_rocc.h"
+#include "tests/include/le-chiffre.h"
 
 RVTEST_WITH_ROCC
 
