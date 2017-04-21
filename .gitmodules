@@ -5,7 +5,7 @@
 	path = util/hdl-tools
 	url = git@github.com:ibm/hdl-tools
 [submodule "util/fault-injection"]
-	path = util/fault-injection
+	path = util/instrumentation
 	url = ../fault-injection
 [submodule "tests/rocc-software"]
 	path = tests/rocc-software
