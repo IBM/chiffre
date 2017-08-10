@@ -12,8 +12,7 @@ class WithLeChiffre extends Config (
     case BuildRoCC => Seq(
       RoccParameters(
         opcodes = OpcodeSet.custom0,
-        generator = (p: Parameters) =>  Module(new LeChiffre()(p)),
-        nPTWPorts = 1)
+        generator = (p: Parameters) =>  Module(new LeChiffre()(p)))
     )
     case RoccMaxTaggedMemXacts => 1
     case _ => throw new CDEMatchError

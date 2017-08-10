@@ -25,10 +25,6 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
 
   io.SCAN_clk := false.B
 
-  val ptw = io.ptw(0)
-  ptw.req.bits.store := false.B
-  ptw.req.bits.fetch := false.B
-
   val do_echo    = io.cmd.fire() & io.cmd.bits.inst.funct === f_ECHO.U
   val do_cycle   = io.cmd.fire() & io.cmd.bits.inst.funct === f_CYCLE.U
   val do_enable  = io.cmd.fire() & io.cmd.bits.inst.funct === f_ENABLE.U
