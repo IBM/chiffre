@@ -3,12 +3,11 @@ package rocketchip
 
 import chisel3._
 import rocket._
-import config._
+import cde._
 import leChiffre._
 
 class WithLeChiffre extends Config (
-  (pname,site,here) =>
-  pname match {
+  (pname,site,here) => pname match {
     case BuildRoCC => Seq(
       RoccParameters(
         opcodes = OpcodeSet.custom0,

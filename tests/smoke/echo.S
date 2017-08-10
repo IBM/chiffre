@@ -1,10 +1,10 @@
 # See LICENSE.ibm for license details.
 
 #*****************************************************************************
-# load-store.S
+# echo.S
 #-----------------------------------------------------------------------------
 #
-# Test that we can do loads and stores to/from Fox.
+# Test that the echo command works for Le Chiffre
 #
 
 #include "riscv_test.h"
@@ -17,7 +17,7 @@ RVTEST_WITH_ROCC
 
 RVTEST_CODE_BEGIN
 
-  TEST_CASE( 1, x0, 0x0, LE_CHIFFRE_ECHO(0xdead, 3) );
+  TEST_CASE( 1, x3, 0xdead, LE_CHIFFRE_ECHO(0xdead, 3) );
 
   TEST_PASSFAIL
 

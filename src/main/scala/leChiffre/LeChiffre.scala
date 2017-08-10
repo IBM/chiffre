@@ -4,7 +4,7 @@ package leChiffre
 import chisel3._
 import chisel3.util._
 import rocket._
-import config._
+import cde._
 import perfect.util._
 import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 
@@ -30,7 +30,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val do_enable  = io.cmd.fire() & io.cmd.bits.inst.funct === f_ENABLE.U
   val do_unknown = io.cmd.fire() & io.cmd.bits.inst.funct  >  f_ENABLE.U
 
-  val s_ = Enum(UInt(), List('WAIT,
+  val s_ = Chisel.Enum(UInt(), List('WAIT,
     'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
     'RESP, 'ERROR))
   val state = Reg(init = s_('WAIT))

@@ -8,7 +8,7 @@
 #define f_ENABLE 2
 
 #ifndef CUSTOM_X
-#define CUSTOM_X 0
+#define CUSTOM_X 2
 #endif
 
 #define LE_CHIFFRE_ECHO(data, rd)                               \
