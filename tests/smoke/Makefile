@@ -5,7 +5,8 @@ src_dir = .
 
 tests = \
 	echo \
-	cycle
+	reg-wb-bomb \
+	faulty-cycle
 
 tests_p = $(addprefix $(ROCC)-p-, $(tests))
 

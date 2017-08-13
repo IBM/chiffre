@@ -18,6 +18,7 @@ trait ScanChainIO {
 class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     with LeChiffreH with FletcherH with HasTileLinkParameters {
   override lazy val io = new RoCCInterface with ScanChainIO
+  override val printfSigil = "LeChiffre: "
 
   io.busy := false.B
   io.interrupt := false.B
@@ -65,7 +66,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     read_count := 0.U
     cycles_to_scan := 0.U - 1.U
     ones_to_scan := io.cmd.bits.rs2
-    printfInfo("LeChiffre: Cycling: addr 0x%x\n", io.cmd.bits.rs1)
+    printfInfo("Cycling: addr 0x%x\n", io.cmd.bits.rs1)
   }
 
   io.SCAN_en := RegNext(do_enable)
@@ -80,7 +81,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
 
   when (state === s_('CYCLE_TRANSLATE)) {
     state := s_('ERROR)
-    printfError("LeChiffre: Address translation not implemented\n")
+    printfError("Address translation not implemented\n")
   }
 
   val acq = io.autl.acquire
@@ -146,8 +147,8 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
       when (read_count === 0.U) {
         checksum := gnt.bits.data(63,32)
         cycles_to_scan := gnt.bits.data(31,0)
-        printfInfo("LeChiffre: Bits to scan: 0x%x\n", gnt.bits.data(31,0))
-        printfInfo("LeChiffre: Checksum: 0x%x\n", gnt.bits.data(63,32))
+        printfInfo("Bits to scan: 0x%x\n", gnt.bits.data(31,0))
+        printfInfo("Checksum: 0x%x\n", gnt.bits.data(63,32))
       }
       when (read_count >= cycles_to_scan) {
         piso.p.bits.count := tlDataBits.U - read_count + cycles_to_scan - 1.U
@@ -174,28 +175,28 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   when (state === s_('ERROR)) {
   }
 
-  when (io.cmd.fire()) { printfInfo("LeChiffre: cmd 0x%x, rs1 0x%x, rs2 0x%x\n",
+  when (io.cmd.fire()) { printfInfo("cmd 0x%x, rs1 0x%x, rs2 0x%x\n",
     io.cmd.bits.inst.asUInt, io.cmd.bits.rs1, io.cmd.bits.rs2)
-    printfInfo("LeChiffre:   status 0x%x\n", io.cmd.bits.status.asUInt())
-    printfInfo("LeChiffre:    -> fs 0x%x\n", io.cmd.bits.status.fs)
-    printfInfo("LeChiffre:    -> xs 0x%x\n", io.cmd.bits.status.xs)
-    printfInfo("LeChiffre:    -> vm 0x%x\n", io.cmd.bits.status.vm)
+    printfInfo("  status 0x%x\n", io.cmd.bits.status.asUInt())
+    printfInfo("   -> fs 0x%x\n", io.cmd.bits.status.fs)
+    printfInfo("   -> xs 0x%x\n", io.cmd.bits.status.xs)
+    printfInfo("   -> vm 0x%x\n", io.cmd.bits.status.vm)
   }
   when (io.resp.fire()) { printfInfo("Chiffre: resp rd 0x%x, data 0x%x\n",
     io.resp.bits.rd, io.resp.bits.data) }
 
   when (acq.fire()) {
-    printfInfo("LeChiffre: autl acq.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
+    printfInfo("autl acq.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
       acq.bits.a_type, addr_d, acq.bits.addr_block, acq.bits.addr_beat,
       acq.bits.addr_byte())
   }
 
   when (reqSent && gnt.fire()) {
-    printfDebug("LeChiffre: autl.gnt | data 0x%x, beat 0x%x\n",
+    printfDebug("autl.gnt | data 0x%x, beat 0x%x\n",
       gnt.bits.data, gnt.bits.addr_beat) }
 
   when (io.SCAN_clk) {
-    printfInfo("LeChifre: Scan[%d]: %d, En: %d\n", cycle_count, io.SCAN_out,
+    printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, io.SCAN_out,
       io.SCAN_en)
   }
 

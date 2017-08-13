@@ -1,7 +1,7 @@
-# See LICENSE.ibm for license details.
+# See LICENSE.IBM for license details.
 
 #*****************************************************************************
-# cycle.S
+# reg-wb-bomb.S
 #-----------------------------------------------------------------------------
 #
 # Test that we can cycle through the scan chain
@@ -76,51 +76,48 @@ RVTEST_CODE_END
   .data
 RVTEST_DATA_BEGIN
 
-// Scan chain that will flip all the bits of the register file
-// writeback at cycle 67. This was generated using:
-//   util/fault-injection/scripts/gen-scan-bits -c 67 -p 1 ../emulator/generated-src/rocketchip.LeChiffreConfig.scan -o - | util/fault-injection/scripts/bits-to-asm
+// Scan chain that will flip all the bits of the register file writeback
+// at cycle 800.
 tdat3:
-tdat3_size:
-  .word 0x00000200
-tdat3_checksum:
-  .word 0x237e01d1
-tdat3_scanchain:
-  .word 0x00000043
-  .word 0x00000000
-  .word 0x00000043
-  .word 0x00000000
-  .word 0x00000043
-  .word 0x00000000
-  .word 0x00000043
-  .word 0x00000000
-  .word 0x00000043
-  .word 0x00000000
-  .word 0x00000043
-  .word 0x00000000
-  .word 0xffffffff
-  .word 0xffffffff
-  .word 0x00000043
-  .word 0x00000000
+.word 0x00000200
+.word 0xa85e15d5
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0xffffffff
+.word 0xffffffff
+.word 0x0000031f
+.word 0x00000000
 
 // Scan chain that will flip no bits at cycle 66:
 //   util/fault-injection/scripts/gen-scan-bits -c 66 -p 0 ../emulator/generated-src/rocketchip.LeChiffreConfig.scan -o - | util/fault-injection/scripts/bits-to-asm
 tdat4:
-  .word 0x00000200
-  .word 0x231001ce
-  .word 0x00000042
-  .word 0x00000000
-  .word 0x00000042
-  .word 0x00000000
-  .word 0x00000042
-  .word 0x00000000
-  .word 0x00000042
-  .word 0x00000000
-  .word 0x00000042
-  .word 0x00000000
-  .word 0x00000042
-  .word 0x00000000
-  .word 0x00000000
-  .word 0x00000000
-  .word 0x00000042
-  .word 0x00000000
+.word 0x00000200
+.word 0xa87815d9
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+.word 0x00000000
+.word 0x00000000
+.word 0x0000031f
+.word 0x00000000
+
 RVTEST_DATA_END
