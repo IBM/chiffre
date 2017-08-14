@@ -9,7 +9,7 @@ all: dana smoke
 
 smoke:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(test_smoke_dir)/$@/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/$@ XLEN=$(XLEN) ROCC=$(ROCC)
+	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/$@ XLEN=$(XLEN) ROCC=$(ROCC)
 
 dana:
 	mkdir -p $@

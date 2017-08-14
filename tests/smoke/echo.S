@@ -11,6 +11,7 @@
 #include "../riscv-tools/riscv-tests/isa/macros/scalar/test_macros.h"
 #include "tests/rocc-software/src/xcustom.h"
 #include "tests/rocc-software/src/riscv_test_rocc.h"
+
 #include "tests/include/le-chiffre.h"
 
 RVTEST_WITH_ROCC
