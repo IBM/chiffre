@@ -3,7 +3,7 @@
 	url = https://github.com/ibm/perfect-chisel
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
-	url = https://github.com/ibm//hdl-tools
+	url = https://github.com/ibm/hdl-tools
 [submodule "util/fault-injection"]
 	path = util/instrumentation
 	url = ../fault-injection
