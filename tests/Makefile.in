@@ -3,15 +3,18 @@ abs_top_srcdir	:= @abs_top_srcdir@
 XLEN            := @XLEN@
 ROCC            := le-chiffre
 
-test_smoke_dir  := $(abs_top_srcdir)/smoke
+.PHONY: all clean dana smoke
 
-.PHONY: all smoke clean
-
-all: smoke
+all: dana smoke
 
 smoke:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_smoke_dir) XLEN=$(XLEN) ROCC=$(ROCC)
+	$(MAKE) -C $@ -f $(test_smoke_dir)/$@/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/$@ XLEN=$(XLEN) ROCC=$(ROCC)
+
+dana:
+	mkdir -p $@
+	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/$@ XLEN=$(XLEN) ROCC=$(ROCC)
 
 clean:
-	$(MAKE) -C smoke -f $(test_smoke_dir)/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(test_smoke_dir) ROCC=$(ROCC) clean
+	$(MAKE) -C smoke -f $(abs_top_srcdir)/smoke/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/smoke/Makefile ROCC=$(ROCC) clean
+	$(MAKE) -C dana -f $(abs_top_srcdir)/dana/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/dana XLEN=$(XLEN) ROCC=$(ROCC) clean

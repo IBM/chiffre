@@ -1,11 +1,11 @@
 XLEN ?= 64
 
-RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf
-CC := $(RISCV_PREFIX)-gcc
+TARGET ?= riscv$(XLEN)-unknown-elf
+CC := $(TARGET)-gcc
 LD := $(CC)
 
 OBJDUMP ?= \
-	$(RISCV_PREFIX)objdump \
+	$(TARGET)objdump \
 	--disassemble-all \
 	--disassemble-zeroes \
 	--section=.text \
@@ -14,7 +14,7 @@ OBJDUMP ?= \
 	--section=.data
 
 LDFLAGS := $(LDFLAGS) \
-	-L$(abs_top_srcdir)/libs/build/$(RISCV_PREFIX)
+	-L$(abs_top_srcdir)/libs/build/$(TARGET)
 
 ENV_P = $(abs_top_srcdir)/../../riscv-tools/riscv-tests/env/p
 ENV_V = $(abs_top_srcdir)/../../riscv-tools/riscv-tests/env/v
