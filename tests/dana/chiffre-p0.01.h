@@ -1,131 +1,138 @@
-#define CHIFFRE_BITSTREAM \
-.word 0x00001000;
-.word 0xc4daf668;
-.word 0x0ad2028f;
-.word 0x0224028f;
-.word 0x320a028f;
-.word 0x387c028f;
-.word 0x1157028f;
-.word 0xe5e3028f;
-.word 0x7008028f;
-.word 0x6755028f;
-.word 0x6516028f;
-.word 0x1beb028f;
-.word 0x159d028f;
-.word 0x7ab7028f;
-.word 0xe08e028f;
-.word 0xc66c028f;
-.word 0x1e65028f;
-.word 0xaa24028f;
-.word 0x889d0000;
-.word 0xe3a70000;
-.word 0xf7010000;
-.word 0x06650000;
-.word 0x04340000;
-.word 0x5b2e0000;
-.word 0x64c70000;
-.word 0x160f0000;
-.word 0xdfd40000;
-.word 0xb03f0000;
-.word 0x5e210000;
-.word 0x16410000;
-.word 0x9d480000;
-.word 0xa4220000;
-.word 0x3e2b0000;
-.word 0x447d0000;
-.word 0x82c8028f;
-.word 0xc71a028f;
-.word 0x1725028f;
-.word 0x90dd028f;
-.word 0xf6ad028f;
-.word 0xb0ef028f;
-.word 0xa61a028f;
-.word 0x5dee028f;
-.word 0x5f3c028f;
-.word 0xb8f2028f;
-.word 0xb2f9028f;
-.word 0xf438028f;
-.word 0x0222028f;
-.word 0x19bb028f;
-.word 0xdca8028f;
-.word 0x3e12028f;
-.word 0x097f0000;
-.word 0xc5c40000;
-.word 0x65c40000;
-.word 0x935c0000;
-.word 0xb5000000;
-.word 0x803f0000;
-.word 0x289e0000;
-.word 0x6fed0000;
-.word 0xc6740000;
-.word 0x8ceb0000;
-.word 0x4af30000;
-.word 0xb3440000;
-.word 0x33c40000;
-.word 0x8fd70000;
-.word 0xfd3d0000;
-.word 0xd7e10000;
-.word 0x6ae9028f;
-.word 0xa372028f;
-.word 0x38b8028f;
-.word 0xf30a028f;
-.word 0x87d2028f;
-.word 0x6afa028f;
-.word 0xca50028f;
-.word 0xad62028f;
-.word 0x2e7a028f;
-.word 0x171e028f;
-.word 0xc45e028f;
-.word 0x1c7d028f;
-.word 0xd8d3028f;
-.word 0xce58028f;
-.word 0x5acd028f;
-.word 0xde22028f;
-.word 0x5b460000;
-.word 0x44be0000;
-.word 0x0b670000;
-.word 0x81580000;
-.word 0x8ad70000;
-.word 0x34730000;
-.word 0xbe920000;
-.word 0xd1620000;
-.word 0xea740000;
-.word 0x05390000;
-.word 0x7e4f0000;
-.word 0x5a700000;
-.word 0xf5360000;
-.word 0xba970000;
-.word 0xb5060000;
-.word 0x63790000;
-.word 0xa9bc028f;
-.word 0xb5a5028f;
-.word 0x03ae028f;
-.word 0xcc9b028f;
-.word 0x2105028f;
-.word 0xaffc028f;
-.word 0xbdbf028f;
-.word 0x3876028f;
-.word 0x532d028f;
-.word 0x86bb028f;
-.word 0xaa2f028f;
-.word 0x4e91028f;
-.word 0x23ec028f;
-.word 0x5830028f;
-.word 0x3bfc028f;
-.word 0x3896028f;
-.word 0x50d40000;
-.word 0x3e450000;
-.word 0xdab20000;
-.word 0x0fba0000;
-.word 0xa45b0000;
-.word 0x98d70000;
-.word 0xa0140000;
-.word 0x10180000;
-.word 0xb5390000;
-.word 0x675c0000;
-.word 0x09a20000;
-.word 0xee120000;
-.word 0x508a0000;
-.word 0x6f3a0000;
-.word 0x1d1d0000;
+#define CHIFFRE_CONFIG                          \
+  chiffre_difficulty:                           \
+  .dword 0x00418937; /* 0.1% */                 \
+ chiffre_duration:                              \
+ .dword 0x400;                                  \
+ chiffre_seed:                                  \
+ .dword 0xf4ce;
+#define CHIFFRE_BITSTREAM                       \
+.word 0x00001000; \
+.word 0xc4daf668; \
+.word 0x0ad2028f; \
+.word 0x0224028f; \
+.word 0x320a028f; \
+.word 0x387c028f; \
+.word 0x1157028f; \
+.word 0xe5e3028f; \
+.word 0x7008028f; \
+.word 0x6755028f; \
+.word 0x6516028f; \
+.word 0x1beb028f; \
+.word 0x159d028f; \
+.word 0x7ab7028f; \
+.word 0xe08e028f; \
+.word 0xc66c028f; \
+.word 0x1e65028f; \
+.word 0xaa24028f; \
+.word 0x889d0000; \
+.word 0xe3a70000; \
+.word 0xf7010000; \
+.word 0x06650000; \
+.word 0x04340000; \
+.word 0x5b2e0000; \
+.word 0x64c70000; \
+.word 0x160f0000; \
+.word 0xdfd40000; \
+.word 0xb03f0000; \
+.word 0x5e210000; \
+.word 0x16410000; \
+.word 0x9d480000; \
+.word 0xa4220000; \
+.word 0x3e2b0000; \
+.word 0x447d0000; \
+.word 0x82c8028f; \
+.word 0xc71a028f; \
+.word 0x1725028f; \
+.word 0x90dd028f; \
+.word 0xf6ad028f; \
+.word 0xb0ef028f; \
+.word 0xa61a028f; \
+.word 0x5dee028f; \
+.word 0x5f3c028f; \
+.word 0xb8f2028f; \
+.word 0xb2f9028f; \
+.word 0xf438028f; \
+.word 0x0222028f; \
+.word 0x19bb028f; \
+.word 0xdca8028f; \
+.word 0x3e12028f; \
+.word 0x097f0000; \
+.word 0xc5c40000; \
+.word 0x65c40000; \
+.word 0x935c0000; \
+.word 0xb5000000; \
+.word 0x803f0000; \
+.word 0x289e0000; \
+.word 0x6fed0000; \
+.word 0xc6740000; \
+.word 0x8ceb0000; \
+.word 0x4af30000; \
+.word 0xb3440000; \
+.word 0x33c40000; \
+.word 0x8fd70000; \
+.word 0xfd3d0000; \
+.word 0xd7e10000; \
+.word 0x6ae9028f; \
+.word 0xa372028f; \
+.word 0x38b8028f; \
+.word 0xf30a028f; \
+.word 0x87d2028f; \
+.word 0x6afa028f; \
+.word 0xca50028f; \
+.word 0xad62028f; \
+.word 0x2e7a028f; \
+.word 0x171e028f; \
+.word 0xc45e028f; \
+.word 0x1c7d028f; \
+.word 0xd8d3028f; \
+.word 0xce58028f; \
+.word 0x5acd028f; \
+.word 0xde22028f; \
+.word 0x5b460000; \
+.word 0x44be0000; \
+.word 0x0b670000; \
+.word 0x81580000; \
+.word 0x8ad70000; \
+.word 0x34730000; \
+.word 0xbe920000; \
+.word 0xd1620000; \
+.word 0xea740000; \
+.word 0x05390000; \
+.word 0x7e4f0000; \
+.word 0x5a700000; \
+.word 0xf5360000; \
+.word 0xba970000; \
+.word 0xb5060000; \
+.word 0x63790000; \
+.word 0xa9bc028f; \
+.word 0xb5a5028f; \
+.word 0x03ae028f; \
+.word 0xcc9b028f; \
+.word 0x2105028f; \
+.word 0xaffc028f; \
+.word 0xbdbf028f; \
+.word 0x3876028f; \
+.word 0x532d028f; \
+.word 0x86bb028f; \
+.word 0xaa2f028f; \
+.word 0x4e91028f; \
+.word 0x23ec028f; \
+.word 0x5830028f; \
+.word 0x3bfc028f; \
+.word 0x3896028f; \
+.word 0x50d40000; \
+.word 0x3e450000; \
+.word 0xdab20000; \
+.word 0x0fba0000; \
+.word 0xa45b0000; \
+.word 0x98d70000; \
+.word 0xa0140000; \
+.word 0x10180000; \
+.word 0xb5390000; \
+.word 0x675c0000; \
+.word 0x09a20000; \
+.word 0xee120000; \
+.word 0x508a0000; \
+.word 0x6f3a0000; \
+.word 0x1d1d0000; \
 .word 0xa1360000;
