@@ -22,7 +22,11 @@ object ChiffreAnnotation {
 trait ChiffreAnnotator {
   self: Module =>
 
-  def isInjectable(component: InstanceId, value: String): Unit = {
-    annotate(ChiselAnnotation(component, classOf[ChiffreInjectionTransform], value))
+  def isInjectee(): Unit = {
+    annotate(ChiselAnnotation(this, classOf[ChiffreInjectionTransform], "injectee"))
+  }
+
+  def isInjector(): Unit = {
+    annotate(ChiselAnnotation(this, classOf[ChiffreInjectionTransform], "injector"))
   }
 }

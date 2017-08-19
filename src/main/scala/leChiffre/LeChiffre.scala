@@ -18,7 +18,8 @@ trait ScanChainIO {
 }
 
 class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
-    with LeChiffreH with FletcherH with HasTileLinkParameters {
+    with LeChiffreH with FletcherH with HasTileLinkParameters
+    with ChiffreAnnotator {
   override lazy val io = new RoCCInterface with ScanChainIO
   override val printfSigil = "LeChiffre: "
 
@@ -246,4 +247,6 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   // Catch all error states
   when (do_unknown) { state := s_('ERROR) }
   assert(RegNext(state) =/= s_('ERROR), "[ERROR] LeChiffre: Hit error state\n")
+
+  isInjector()
 }
