@@ -22,11 +22,21 @@ object ChiffreAnnotation {
 trait ChiffreAnnotator {
   self: Module =>
 
+  def broadcastSource(name: String, width: Int): Unit = {
+    annotate(ChiselAnnotation(this, classOf[ChiffreInjectionTransform], s"broadcast,source,${name},${width}"))
+  }
+
+  def broadcastSink(name: String): Unit = {
+    annotate(ChiselAnnotation(this, classOf[ChiffreInjectionTransform], s"broadcast,sink,${name}"))
+  }
+
   def isInjectee(): Unit = {
-    annotate(ChiselAnnotation(this, classOf[ChiffreInjectionTransform], "injectee"))
+    broadcastSink("io_SCAN_clk")
+    broadcastSink("io_SCAN_en")
   }
 
   def isInjector(): Unit = {
-    annotate(ChiselAnnotation(this, classOf[ChiffreInjectionTransform], "injector"))
+    broadcastSource("io_SCAN_clk", 1)
+    broadcastSource("io_SCAN_en", 1)
   }
 }
