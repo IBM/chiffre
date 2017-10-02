@@ -10,24 +10,26 @@ import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import perfect.util._
 import perfect.random._
 
-trait ScanChainIO {
-  val SCAN_clk = Output(Bool())
-  val SCAN_en = Output(Bool())
-  val SCAN_in = Input(Bool())
-  val SCAN_out = Output(Bool())
+class ScanChain extends Bundle {
+  val clk = Output(Bool())
+  val en = Output(Bool())
+  val in = Input(Bool())
+  val out = Output(Bool())
 }
 
 class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     with LeChiffreH with FletcherH with HasTileLinkParameters
     with ChiffreAnnotator {
-  override lazy val io = new RoCCInterface with ScanChainIO
+  override lazy val io = new RoCCInterface
   override val printfSigil = "LeChiffre: "
 
   io.busy := false.B
   io.interrupt := false.B
   io.mem.req.valid := false.B
 
-  io.SCAN_clk := false.B
+  val scan = Wire(new ScanChain)
+
+  scan.clk := false.B
 
   val funct = io.cmd.bits.inst.funct
   val do_echo             = io.cmd.fire() & funct === f_ECHO.U
@@ -62,14 +64,14 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val emergency = Reg(init = false.B)
   val count = Reg(init = 0.U(reg_fault_duration.getWidth.W))
 
-  io.SCAN_en := false.B
+  scan.en := false.B
   when (emergency)                    { count      := count + 1.U }
   when (count === reg_fault_duration) { emergency  := false.B
-                                        io.SCAN_en := true.B      }
+                                        scan.en := true.B      }
   when (reg_enabled && (lfsr.io.y < reg_difficulty)) {
     emergency := true.B
     count := 0.U
-    io.SCAN_en := !emergency
+    scan.en := !emergency
   }
 
   io.cmd.ready := state === s_('WAIT)
@@ -120,7 +122,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   }
 
   val fletcherWord = Reg(UInt(16.W))
-  fletcher.io.data.bits.word := io.SCAN_out ## fletcherWord(15,1)
+  fletcher.io.data.bits.word := scan.out ## fletcherWord(15,1)
   fletcher.io.data.valid := false.B
 
   when (state === s_('CYCLE_TRANSLATE)) {
@@ -139,13 +141,13 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   piso.p.valid := reqSent & gnt.fire() & read_count =/= 0.U
   piso.p.bits.data := gnt.bits.data
   piso.p.bits.count := (tlDataBits - 1).U
-  io.SCAN_clk := piso.s.valid
-  io.SCAN_out := piso.s.bits
+  scan.clk := piso.s.valid
+  scan.out := piso.s.bits
   val last = cycle_count === cycles_to_scan - 1.U
   when (piso.s.valid) {
     cycle_count := cycle_count + 1.U
 
-    fletcherWord := io.SCAN_out ## fletcherWord(15,1)
+    fletcherWord := scan.out ## fletcherWord(15,1)
     when (cycle_count(3,0) === 15.U || last) {
       fletcher.io.data.valid := true.B
       fletcher.io.data.bits.cmd := k_compute.U
@@ -239,14 +241,15 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     printfDebug("autl.gnt | data 0x%x, beat 0x%x\n",
       gnt.bits.data, gnt.bits.addr_beat) }
 
-  when (io.SCAN_clk) {
-    printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, io.SCAN_out,
-      io.SCAN_en)
+  when (scan.clk) {
+    printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, scan.out,
+      scan.en)
   }
 
   // Catch all error states
   when (do_unknown) { state := s_('ERROR) }
   assert(RegNext(state) =/= s_('ERROR), "[ERROR] LeChiffre: Hit error state\n")
 
-  isInjector()
+  addSource(scan.clk, "scan_clk")
+  addSource(scan.en, "scan_en")
 }
