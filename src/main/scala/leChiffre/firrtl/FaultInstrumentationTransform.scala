@@ -24,11 +24,12 @@ class FaultInstrumentationTransform extends Transform {
   def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
     case Nil => state
     case p =>
-      val f = p.foldLeft(Seq[FaultInstrumentationInfo]())( (accFaults, x) =>
-        accFaults :+ (x match {
-          case LfsrAnnotation(c, w) => FaultInstrumentationInfo(c, FaultLfsr(w.toInt))
-          case _ => throw new
-              FaultInstrumentationException("Unknown fault annotation type")}))
-      new FaultInstrumentation(f).runTransform(state)
+      val faultMap = collection.mutable.Map[String, Seq[FaultInstrumentationInfo]]()
+      p.foreach {
+        case LfsrAnnotation(c, w) =>
+          faultMap(c.module.name) = faultMap.getOrElse(c.module.name , Seq.empty) :+ FaultInstrumentationInfo(c, FaultLfsr(w.toInt))
+        case _ => throw new
+            FaultInstrumentationException("Unknown fault annotation type")}
+      new FaultInstrumentation(faultMap.toMap).runTransform(state)
   }
 }

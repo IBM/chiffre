@@ -12,10 +12,13 @@ final case class FaultLfsr(width: Int) extends FaultInfo
 
 case class FaultInstrumentationInfo(comp: ComponentName, fault: FaultInfo)
 
-class FaultInstrumentation(faults: Seq[FaultInstrumentationInfo]) extends Pass {
+class FaultInstrumentation(faultMap: Map[String, Seq[FaultInstrumentationInfo]]) extends Pass {
   def run(c: Circuit): Circuit = {
-    faults.map( f =>
-      println(s"[info] Fault: module: ${f.comp.module.name}, signal: ${f.comp.name}"))
+    logger.info(s"  [info] run")
+    faultMap.map{ case (k, v) => {
+      logger.info(s"  [info] - module: ${k}")
+      v.map(x => logger.info(s"  [info]   - comp: ${x.comp.name}"))
+    }}
     ToWorkingIR.run(c)
   }
 
@@ -23,7 +26,12 @@ class FaultInstrumentation(faults: Seq[FaultInstrumentationInfo]) extends Pass {
     c
   }
 
-  def onModule(m: DefModule): DefModule = {
+  def onModule(faultMap: Map[String, Seq[FaultInstrumentationInfo]])(m: DefModule): DefModule = {
+    faultMap.get(m.name) match {
+      case None => m
+      case Some(l) =>
+        logger.info(s"  [info] Found module $m.name")
+    }
     m
   }
 }
