@@ -19,15 +19,13 @@ class ScanChain extends Bundle {
 
 class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     with LeChiffreH with FletcherH with HasTileLinkParameters
-    with ChiffreAnnotator {
+    with ChiffreController {
   override lazy val io = new RoCCInterface
   override val printfSigil = "LeChiffre: "
 
   io.busy := false.B
   io.interrupt := false.B
   io.mem.req.valid := false.B
-
-  val scan = Wire(new ScanChain)
 
   scan.clk := false.B
 
@@ -249,7 +247,4 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   // Catch all error states
   when (do_unknown) { state := s_('ERROR) }
   assert(RegNext(state) =/= s_('ERROR), "[ERROR] LeChiffre: Hit error state\n")
-
-  addSource(scan.clk, "scan_clk")
-  addSource(scan.en, "scan_en")
 }

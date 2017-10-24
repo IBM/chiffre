@@ -6,14 +6,24 @@ import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
 
-object LfsrAnnotation {
-  def apply(target: ComponentName, width: String): Annotation = Annotation(target,
-    classOf[FaultInstrumentationTransform], s"lfsr$width")
+object OriginalAnnotation {
+  def apply(comp: ComponentName, id: Int): Annotation =
+    Annotation(comp, classOf[FaultInstrumentationTransform], s"originalId:$id")
+  val matcher = raw"originalId:(\d+)".r
+  def unapply(a: Annotation): Option[(ComponentName, Int)] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(id)) =>
+      Some(ComponentName(n, m), id.toInt)
+    case _ => None
+  }
+}
 
-  private val matcher = raw"lfsr(\d+)".r
-  def unapply(a: Annotation): Option[(ComponentName, String)] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(width)) =>
-      Some((ComponentName(n, m), width))
+object ReplacementAnnotation {
+  def apply(comp: ComponentName, id: Int): Annotation =
+    Annotation(comp, classOf[FaultInstrumentationTransform], s"replacementId:$id")
+  val matcher = raw"replacementId:(\d+)".r
+  def unapply(a: Annotation): Option[(ComponentName, Int)] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(id)) =>
+      Some(ComponentName(n, m), id.toInt)
     case _ => None
   }
 }
@@ -24,12 +34,19 @@ class FaultInstrumentationTransform extends Transform {
   def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
     case Nil => state
     case p =>
-      val faultMap = collection.mutable.Map[String, Seq[FaultInstrumentationInfo]]()
+      val orig = mutable.HashMap[String, Seq[(Int, ComponentName)]]()
+      val repl = mutable.HashMap[String, Map[Int, ComponentName]]()
       p.foreach {
-        case LfsrAnnotation(c, w) =>
-          faultMap(c.module.name) = faultMap.getOrElse(c.module.name , Seq.empty) :+ FaultInstrumentationInfo(c, FaultLfsr(w.toInt))
+        case OriginalAnnotation(c, id) =>
+          orig(c.module.name) = orig.getOrElse(c.module.name, Seq.empty) :+ (id, c)
+        case ReplacementAnnotation(c, id) =>
+          repl(c.module.name) = repl.getOrElse(c.module.name, Map.empty) ++ Map(id -> c)
         case _ => throw new
             FaultInstrumentationException("Unknown fault annotation type")}
+      val faultMap = mutable.HashMap[String, Seq[FaultInstrumentationInfo]]()
+      orig.map{ case (name, x) => x.map{ case (id, c) =>
+        faultMap(name) = faultMap.getOrElse(name, Seq.empty) :+ FaultInstrumentationInfo(c, repl(name)(id)) }}
+
       new FaultInstrumentation(faultMap.toMap).runTransform(state)
   }
 }
