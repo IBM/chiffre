@@ -89,7 +89,11 @@ class FaultInstrumentation(faultMap: Map[String, Seq[FaultInstrumentationInfo]])
   }
 
   private def onStmt(renames: Map[String, String])(s: Statement): Statement = {
-    s mapStmt onStmt(renames) mapExpr replace(renames)
+    s mapStmt onStmt(renames) match {
+      case Connect(i, l, e) => Connect(i, l, e mapExpr replace(renames))
+      case PartialConnect(i, l, e) => PartialConnect(i, l, e mapExpr replace(renames))
+      case s => s mapExpr replace(renames)
+    }
   }
 
   private def replace(renames: Map[String, String])(e: Expression): Expression = {
