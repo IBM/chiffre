@@ -45,7 +45,7 @@ trait ChiffreInjectee extends ChiffreScan {
   def isFaulty(component: InstanceId, lfsrWidth: Int): Unit = {
     component match {
       case c: Bits =>
-        val repls = Vec.fill(c.getWidth)(Wire(Bool()))
+        val repls = Wire(Vec(c.getWidth, Bool()))
         Seq.fill(c.getWidth)(Module(new perfect.random.Lfsr(lfsrWidth)))
           .zipWithIndex.map{ case (lfsr, i) => {
             val seed = Reg(UInt(lfsrWidth.W))
@@ -63,7 +63,8 @@ trait ChiffreInjectee extends ChiffreScan {
             when (scan.en) { enabled := true.B }
             scanIn = difficulty(0)
           }}
-        bindOriginalToReplacement(component, repls.asUInt)
+        val inject = c.fromBits(repls.asUInt)
+        bindOriginalToReplacement(component, inject)
       case c => throw new Exception(s"Type not implemented for: $c")
     }
 
