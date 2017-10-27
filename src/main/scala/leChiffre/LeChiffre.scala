@@ -11,8 +11,8 @@ import perfect.util._
 import perfect.random._
 
 class ScanChain extends Bundle {
-  val clk = Output(Bool())
-  val en = Output(Bool())
+  val clk = Input(Bool())
+  val en = Input(Bool())
   val in = Input(Bool())
   val out = Output(Bool())
 }

@@ -13,7 +13,8 @@ import scala.collection.mutable
 
 case class FaultInstrumentationException(msg: String) extends PassException(msg)
 
-case class FaultInstrumentationInfo(orig: ComponentName, repl: ComponentName)
+case class FaultInstrumentationInfo(orig: ComponentName, conn: ComponentName,
+  repl: ComponentName)
 
 case class Modifications(
   defines: Seq[Statement] = Seq.empty,
@@ -51,8 +52,9 @@ class FaultInstrumentation(faultMap: Map[String, Seq[FaultInstrumentationInfo]])
             val t = passes.wiring.WiringUtils.getType(c, m.name, f.orig.name)
             mods(m.name) = x.copy(
               defines = x.defines :+ DefWire(NoInfo, rename, t),
-              connects = x.connects :+ Connect(NoInfo,
-                toExp(rename).mapType(_=>t), f.repl.expr.mapType(_=>t)),
+              connects = x.connects ++ Seq(
+                Connect(NoInfo,f.conn.expr.mapType(_=>t),f.orig.expr.mapType(_=>t)),
+                Connect(NoInfo,toExp(rename).mapType(_=>t), f.repl.expr.mapType(_=>t))),
               renames = x.renames ++ Map(f.orig.name -> rename))
           })
         case m: ExtModule =>
