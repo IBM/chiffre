@@ -1,5 +1,5 @@
 // See LICENSE.IBM for license details.
-package firrtl.passes
+package leChiffre.passes
 
 import firrtl._
 import firrtl.passes._

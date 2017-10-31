@@ -1,15 +1,12 @@
 // See LICENSE for license details.
-package firrtl.passes
+package leChiffre.passes
 
 import firrtl._
 import firrtl.ir._
+import firrtl.passes._
 import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
-
-// todo:
-//   - Determine Type and Kind of faulty wire
-//   - Do not overwrite left-hand-side statements
 
 case class FaultInstrumentationException(msg: String) extends PassException(msg)
 
@@ -77,13 +74,13 @@ class FaultInstrumentation(faultMap: Map[String, Seq[FaultInstrumentationInfo]])
           val x = mods(m.name)
           val mx = m.copy(body = Block(
             (x.defines :+ (m.body mapStmt onStmt(x.renames))) ++ x.connects))
-          logger.info("[info] original:")
-          logger.info(s"[info] ----------------------------------------")
-          logger.info(m.serialize)
-          logger.info(s"[info] ----------------------------------------")
-          logger.info("[info] instrumented:")
-          logger.info(mx.serialize)
-          logger.info(s"[info] ----------------------------------------")
+          // logger.info("[info] original:")
+          // logger.info(s"[info] ----------------------------------------")
+          // logger.info(m.serialize)
+          // logger.info(s"[info] ----------------------------------------")
+          // logger.info("[info] instrumented:")
+          // logger.info(mx.serialize)
+          // logger.info(s"[info] ----------------------------------------")
           mx
         case _ => m
       }

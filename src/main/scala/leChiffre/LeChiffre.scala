@@ -10,7 +10,7 @@ import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import perfect.util._
 import perfect.random._
 
-class ScanChain extends Bundle {
+class ScanIo extends Bundle {
   val clk = Input(Bool())
   val en = Input(Bool())
   val in = Input(Bool())
@@ -22,6 +22,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     with ChiffreController {
   override lazy val io = new RoCCInterface
   override val printfSigil = "LeChiffre: "
+  lazy val scanId = "main"
 
   io.busy := false.B
   io.interrupt := false.B

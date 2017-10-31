@@ -5,7 +5,7 @@ package leChiffre
 import chisel3._
 
 class InjectorIo extends Bundle {
-  val scan = new ScanChain
+  val scan = new ScanIo
   val in = Input(Bool())
   val out = Output(Bool())
 }
