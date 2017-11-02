@@ -100,24 +100,3 @@ trait ChiffreInjectee extends ChiffreScan {
     touched = true
   }
 }
-
-// case class ScanInfo(io: Seq[(InstanceId, InstanceId)], size: Seq[(String, Int)]) {
-//   def ++ (a: ScanInfo): ScanInfo = ScanInfo(this.io ++ a.io, this.size ++ a.size)
-// }
-
-// object ScanChain {
-//   private val scans = mutable.HashMap[String, ScanInfo]()
-
-//   def append(id: String, in: InstanceId, out: InstanceId, bits: Seq[(String, Int)]):
-//       Unit = {
-//     scans(id) = scans.getOrElse(id, ScanInfo(Seq.empty, Seq.empty)) ++ (
-//       ScanInfo(Seq((in, out)), bits) )
-//   }
-
-//   def serialize(indent: String): String = {
-//     scans.map{ case (k, b) => s"""${indent} ${k}:
-// ${indent}   io: ${v.io.map{case(a,b) => s"$indent     - $a, $b"}}
-// """
-//     }
-//   }
-// }
