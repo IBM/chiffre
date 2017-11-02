@@ -29,8 +29,11 @@ $tab slaves:${slaveIn.map( x=> s"$tab  - ${x.module.name}\n$tab    ${x.name}: ${
 }
 
 class ScanChainTransform extends Transform {
-  def inputForm = HighForm
+  def inputForm = MidForm
   def outputForm = HighForm
+  def transforms(w: Seq[wiring.WiringInfo]) = Seq(
+    new wiring.Wiring(w)
+  )
   def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
     case Nil => state
     case p =>
@@ -58,20 +61,14 @@ ${v.serialize("[info]   ")}""") }
       // BFS. This should then be `O(n * m)` for `n` scan chain nodes
       // in a circuit with `m` instances.
 
-      val annosx = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) => a ++
+      val wx = s.foldLeft(Seq[wiring.WiringInfo]()){ case (a, (name, v)) => a ++
         (v.masterOut.get +:
           v.slaveIn.flatMap(l => Seq(l, v.slaveOut(l.module.name))) :+
           v.masterIn)
         .grouped(2).zipWithIndex
-        .flatMap{ case ( Seq(l, r), i) => Seq(
-          Annotation(l, classOf[wiring.WiringTransform], s"source scan_${name}_$i"),
-          Annotation(r, classOf[wiring.WiringTransform], s"sink scan_${name}_$i"))
-        }}
+        .map{ case (Seq(l, r), i) =>
+          wiring.WiringInfo(l, Seq(r), s"scan_${name}_$i") }}
 
-      annosx.map(a => logger.info(AnnotationUtils.toYaml(a)))
-
-      state.copy(annotations=Some(
-        AnnotationMap(state.annotations.get.annotations ++ annosx))
-      )
+      transforms(wx).foldLeft(state){ (s, x) => x.runTransform(s) }
   }
 }
