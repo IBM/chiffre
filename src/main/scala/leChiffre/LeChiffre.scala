@@ -10,13 +10,6 @@ import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
 import perfect.util._
 import perfect.random._
 
-class ScanIo extends Bundle {
-  val clk = Input(Bool())
-  val en = Input(Bool())
-  val in = Input(Bool())
-  val out = Output(Bool())
-}
-
 class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     with LeChiffreH with FletcherH with HasTileLinkParameters
     with ChiffreController {

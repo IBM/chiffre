@@ -6,62 +6,56 @@ import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
 
-object OriginalAnnotation {
-  def apply(comp: ComponentName, id: Int): Annotation =
-    Annotation(comp, classOf[FaultInstrumentationTransform], s"originalId:$id")
-  val matcher = raw"originalId:(\d+)".r
-  def unapply(a: Annotation): Option[(ComponentName, Int)] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(id)) =>
-      Some(ComponentName(n, m), id.toInt)
-    case _ => None
+object FaultInjectionAnnotation {
+  def apply(comp: ComponentName, injector: String, params: Seq[String]): Annotation = {
+    val raw_params = params.foldLeft("")(_ + ":" + _)
+    Annotation(comp, classOf[FaultInstrumentationTransform], s"$injector$raw_params")
   }
-}
 
-object ConnectionAnnotation {
-  def apply(comp: ComponentName, id: Int): Annotation =
-    Annotation(comp, classOf[FaultInstrumentationTransform], s"connectionId:$id")
-  val matcher = raw"connectionId:(\d+)".r
-  def unapply(a: Annotation): Option[(ComponentName, Int)] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(id)) =>
-      Some(ComponentName(n, m), id.toInt)
-    case _ => None
+  private def extractParams(x: String): Seq[String] = {
+    val matcher = raw"(.+?)(:(.*))?".r
+    x match {
+      case matcher(car, _, null) => Seq(car)
+      case matcher(car, _, cdr) => Seq(car) ++ extractParams(cdr)
+      case _ => Seq()
+    }
   }
-}
 
-object ReplacementAnnotation {
-  def apply(comp: ComponentName, id: Int): Annotation =
-    Annotation(comp, classOf[FaultInstrumentationTransform], s"replacementId:$id")
-  val matcher = raw"replacementId:(\d+)".r
-  def unapply(a: Annotation): Option[(ComponentName, Int)] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(id)) =>
-      Some(ComponentName(n, m), id.toInt)
+  val matcher = raw"injector:(.+)".r
+  def unapply(a: Annotation): Option[(ComponentName, String, Seq[String])] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(raw_params)) => {
+      val injector :: params = extractParams(raw_params)
+      Some(ComponentName(n, m), injector, params)
+    }
     case _ => None
   }
 }
 
 class FaultInstrumentationTransform extends Transform {
   def inputForm = MidForm
-  def outputForm = HighForm
+  def outputForm = MidForm
+  def transforms(compMap: Map[String, Seq[(ComponentName, String, Seq[String])]]):
+      Seq[Transform] = Seq(
+    new FaultInstrumentation(compMap),
+    new firrtl.passes.wiring.WiringTransform,
+    new ScanChainTransform
+  )
   def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
     case Nil => state
     case p =>
       val orig = mutable.HashMap[String, Seq[(Int, ComponentName)]]()
       val conn = mutable.HashMap[String, Map[Int, ComponentName]]()
       val repl = mutable.HashMap[String, Map[Int, ComponentName]]()
+      val comp = mutable.HashMap[String, Seq[(ComponentName, String, Seq[String])]]()
       p.foreach {
-        case OriginalAnnotation(c, id) =>
-          orig(c.module.name) = orig.getOrElse(c.module.name, Seq.empty) :+ (id, c)
-        case ConnectionAnnotation(c, id) =>
-          conn(c.module.name) = conn.getOrElse(c.module.name, Map.empty) ++ Map(id -> c)
-        case ReplacementAnnotation(c, id) =>
-          repl(c.module.name) = repl.getOrElse(c.module.name, Map.empty) ++ Map(id -> c)
+        case FaultInjectionAnnotation(c, i, p) =>
+          comp(c.module.name) = comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, p)
         case _ => throw new
             FaultInstrumentationException("Unknown fault annotation type")}
-      val faultMap = mutable.HashMap[String, Seq[FaultInstrumentationInfo]]()
-      orig.map{ case (name, x) => x.map{ case (id, c) =>
-        faultMap(name) = faultMap.getOrElse(name, Seq.empty) :+ (
-          FaultInstrumentationInfo(c, conn(name)(id), repl(name)(id)) )}}
 
-      new FaultInstrumentation(faultMap.toMap).runTransform(state)
+      comp.foreach{ case (k, v) =>
+        logger.info(s"[info] $k")
+        v.foreach( a => logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
+      transforms(comp.toMap).foldLeft(state){ (s, x) => x.runTransform(s) }
   }
 }
