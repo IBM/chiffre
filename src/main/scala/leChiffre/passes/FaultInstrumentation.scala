@@ -100,12 +100,15 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
           var scanIn: Option[String] = None
           var scanOut: String = ""
           compMap(m.name) map { case (comp, gen_s, gen_params)  =>
-            val width: Int = gen_params.head.toInt
+            val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
+            val width = getWidth(t)
+            val numBits = width match { case IntWidth(x) => x.toInt }
+            val tx = UIntType(width)
 
             val (subcircuit, defms: Seq[DefModule]) = if (cmods.contains(gen_s)) {
               (cmods(gen_s), Seq.empty)
             } else {
-              cmods(gen_s) = emitModules(gen_s, width, Some(circuitNamespace))
+              cmods(gen_s) = emitModules(gen_s, numBits, Some(circuitNamespace))
               (cmods(gen_s), cmods(gen_s).modules)
             }
             val defi = moduleNamespace.newName(subcircuit.main)
@@ -117,13 +120,9 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
             } else {
               Connect(NoInfo,toExp(scanIn.get),
                       toExp(s"$defi.io.scan.out"))
-              throw new FaultInstrumentationException(
-                "[todo] Add types to multiple injectors within the same module")
             }
 
             val x = mods(m.name)
-            val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
-            val tx = UIntType(getWidth(t))
             mods(m.name) = x.copy(
               defines = Seq(
                 DefInstance(NoInfo, defi, subcircuit.main)

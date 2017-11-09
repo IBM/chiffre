@@ -61,19 +61,21 @@ ${v.serialize("[info]   ")}""") }
       // BFS. This should then be `O(n * m)` for `n` scan chain nodes
       // in a circuit with `m` instances.
 
-      val ax = s.foldLeft(Seq[Annotation]()){
-        case (a, (name, v)) => a ++
-            (v.masterOut.get +:
-               v.slaveIn.flatMap(l => Seq(l, v.slaveOut(l.module.name))) :+
-               v.masterIn)
-            .grouped(2).zipWithIndex
-            .flatMap{ case (Seq(l, r), i) =>
-              Seq(Annotation(l,
-                             classOf[firrtl.passes.wiring.WiringTransform],
-                             s"source scan_${name}_$i"),
-                  Annotation(r,
-                             classOf[firrtl.passes.wiring.WiringTransform],
-                             s"sink scan_${name}_$i") )}}
+      val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
+        val chain = (v.masterOut.get +:
+                       v.slaveIn.flatMap(l => Seq(l, v.slaveOut(l.module.name))) :+
+                       v.masterIn)
+        val annotations = chain
+          .grouped(2).zipWithIndex
+          .flatMap{ case (Seq(l, r), i) =>
+            Seq(Annotation(l,
+                           classOf[firrtl.passes.wiring.WiringTransform],
+                           s"source scan_${name}_$i"),
+                Annotation(r,
+                           classOf[firrtl.passes.wiring.WiringTransform],
+                           s"sink scan_${name}_$i") )}
+        a ++ annotations
+      }
 
       val sx = state.copy(
         annotations = Some(AnnotationMap(state.annotations.get.annotations ++ ax)))

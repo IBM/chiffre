@@ -8,12 +8,7 @@ import chisel3.internal.InstanceId
 import chisel3.experimental.ChiselAnnotation
 import scala.collection.mutable
 
-sealed trait ChiffreScan {
-  self: Module =>
-  val scan = Wire(new ScanIo)
-}
-
-trait ChiffreController extends ChiffreScan {
+trait ChiffreController {
   self: Module =>
 
   /** Scan Chain Identifier used to differentiate scan chains. This must
@@ -28,8 +23,9 @@ trait ChiffreController extends ChiffreScan {
   }
 
   private def scanMaster(in: InstanceId, out: InstanceId, name: String): Unit = {
-    if (scanId == null) { throw new Exception(
-      "Chiffre Controller attribute 'scanId' was 'null' (should be a 'lazy val')") }
+    if (scanId == null) {
+      throw new Exception(
+        "Chiffre Controller attribute 'scanId' was 'null' (should be a 'lazy val')") }
     annotate(
       ChiselAnnotation(
         in,
@@ -42,20 +38,22 @@ trait ChiffreController extends ChiffreScan {
         s"master:out:$name"))
   }
 
+  val scan = Wire(new ScanIo)
+
   addSource(scan.clk, "scan_clk")
   addSource(scan.en, "scan_en")
   scanMaster(scan.in, scan.out, scanId)
 }
 
-trait ChiffreInjectee extends ChiffreScan {
+trait ChiffreInjectee {
   self: Module =>
 
-  def isFaulty(component: InstanceId, lfsrWidth: Int, width: Int): Unit = {
+  def isFaulty(component: InstanceId, lfsrWidth: Int): Unit = {
     component match {
       case c: Bits =>
         annotate(ChiselAnnotation(c,
           classOf[passes.FaultInstrumentationTransform],
-          s"injector:leChiffre.LfsrInjector$lfsrWidth:$width"))
+          s"injector:leChiffre.LfsrInjector$lfsrWidth"))
       case c => throw new Exception(s"Type not implemented for: $c")
     }
   }

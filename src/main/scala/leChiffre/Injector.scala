@@ -17,7 +17,7 @@ sealed abstract class Injector(n: Int) extends Module with AddsScanState {
 
 abstract class OneBitInjector extends Injector(1)
 
-sealed class InjectorNBit(n: Int, gen: => Injector) extends Injector(n) {
+class InjectorNBit(n: Int, gen: => Injector) extends Injector(n) {
   val injectors = Seq.fill(n)(Module(gen))
   val bits = injectors.foldLeft(Seq[(String, Int)]()){ case (a, b) => a ++ b.bits }
 
@@ -34,30 +34,3 @@ sealed class InjectorNBit(n: Int, gen: => Injector) extends Injector(n) {
   io.scan.out := scanLast
   io.out := Cat(injectors.map(_.io.out))
 }
-
-class LfsrInjector(lfsrWidth: Int) extends OneBitInjector {
-  val enabled = Reg(init = false.B)
-  val difficulty = Reg(init = 0.U(lfsrWidth.W))
-  val seed = Reg(init = 1.U(lfsrWidth.W))
-
-  val bits = Seq( ("seed", lfsrWidth), ("difficulty", lfsrWidth) )
-
-  val lfsr = Module(new perfect.random.Lfsr(lfsrWidth))
-  lfsr.io.seed.valid := io.scan.en
-  lfsr.io.seed.bits := seed
-
-  val fire = enabled && (lfsr.io.y < difficulty)
-  io.out := Mux(fire, ~io.in, io.in)
-
-  when (io.scan.clk) {
-    enabled := false.B
-    seed := io.scan.in ## (seed >> 1)
-    difficulty := seed(0) ## (difficulty >> 1)
-  }
-
-  io.scan.out := difficulty(0)
-
-  when (io.scan.en) { enabled := true.B }
-}
-
-class LfsrInjector32(n: Int) extends InjectorNBit(n, new LfsrInjector(32))
