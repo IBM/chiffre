@@ -64,7 +64,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
   }
 
   private def emitModules(name: String, width: Int,
-                          ns: Option[Namespace] = None): Circuit = {
+                          ns: Option[Namespace] = None): CircuitState = {
     def genName(name: String, n: Option[Namespace]): String = n match {
       case Some(nn) => nn.newName(name)
       case _ => name
@@ -74,22 +74,45 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
       .getConstructors()(0)
       .newInstance(new java.lang.Integer(width))
       .asInstanceOf[chisel3.Module]
-    val chirrtl = Parser.parse(chisel3.Driver emit gen)
-    val midFirrtl = (new MiddleFirrtlCompiler)
-      .compileAndEmit(CircuitState(chirrtl, ChirrtlForm))
-      .circuit
-      .mapModule(
-        _ match {
-          case m: Module    => m.copy(name = genName(m.name, ns))
-          case m: ExtModule => m.copy(name = genName(m.name, ns))
-        })
-    midFirrtl
+    val inlineCompilerOptions =
+      new ExecutionOptionsManager("Fault Instrumentation Inline")
+          with HasFirrtlOptions
+          with chisel3.HasChiselExecutionOptions {
+        chiselOptions = new chisel3.ChiselExecutionOptions
+        firrtlOptions = new FirrtlExecutionOptions(
+          compilerName = "middle"
+        )
+      }
+    val (midFirrtl, inlineAnnos) =  chisel3.Driver
+      .execute(inlineCompilerOptions, gen) match {
+        case chisel3.ChiselExecutionSuccess(
+          Some(chisel3.internal.firrtl.Circuit(_,_,annos)),_,
+          Some(firrtlResult)) => firrtlResult match {
+          case FirrtlExecutionSuccess(_,ast) => (Parser.parse(ast), annos)
+          case FirrtlExecutionFailure(m) =>
+            throw new FaultInstrumentationException(
+              s"FIRRTL inline compilation failed with '$m'")
+        }
+        case chisel3.ChiselExecutionFailure(m) =>
+          throw new FaultInstrumentationException(
+            s"Chisel inline compilation failed with '$m'")
+      }
+    CircuitState(
+      circuit =
+        midFirrtl
+          .mapModule(
+            _ match {
+              case m: Module    => m.copy(name = genName(m.name, ns))
+              case m: ExtModule => m.copy(name = genName(m.name, ns))
+            }),
+      form = MidForm,
+      annotations = Some(AnnotationMap(inlineAnnos)))
   }
 
   private def analyze(c: Circuit): Map[String, Modifications] = {
     val mods = new mutable.HashMap[String, Modifications]
       .withDefaultValue(Modifications())
-    val cmods = new mutable.HashMap[String, Circuit]()
+    val cmods = new mutable.HashMap[String, CircuitState]()
     val circuitNamespace = Namespace(c)
 
     c.modules
@@ -106,10 +129,10 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
             val tx = UIntType(width)
 
             val (subcircuit, defms: Seq[DefModule]) = if (cmods.contains(gen_s)) {
-              (cmods(gen_s), Seq.empty)
+              (cmods(gen_s).circuit, Seq.empty)
             } else {
               cmods(gen_s) = emitModules(gen_s, numBits, Some(circuitNamespace))
-              (cmods(gen_s), cmods(gen_s).modules)
+              (cmods(gen_s).circuit, cmods(gen_s).circuit.modules)
             }
             val defi = moduleNamespace.newName(subcircuit.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
