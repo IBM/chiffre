@@ -63,8 +63,8 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
                annotations = Some(AnnotationMap(inAnno ++ ax)))
   }
 
-  private def emitModules(name: String, width: Int,
-                          ns: Option[Namespace] = None): CircuitState = {
+  private def inlineCompile(name: String, width: Int,
+                            ns: Option[Namespace] = None): CircuitState = {
     def genName(name: String, n: Option[Namespace]): String = n match {
       case Some(nn) => nn.newName(name)
       case _ => name
@@ -74,37 +74,33 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
       .getConstructors()(0)
       .newInstance(new java.lang.Integer(width))
       .asInstanceOf[chisel3.Module]
-    val inlineCompilerOptions =
+    val options =
       new ExecutionOptionsManager("Fault Instrumentation Inline")
           with HasFirrtlOptions
           with chisel3.HasChiselExecutionOptions {
-        chiselOptions = new chisel3.ChiselExecutionOptions
-        firrtlOptions = new FirrtlExecutionOptions(
-          compilerName = "middle"
+        chiselOptions = new chisel3.ChiselExecutionOptions(
+          runFirrtlCompiler = false
         )
       }
-    val (midFirrtl, inlineAnnos) =  chisel3.Driver
-      .execute(inlineCompilerOptions, gen) match {
+    val (chirrtl, inlineAnnos) =  chisel3.Driver
+      .execute(options, gen) match {
         case chisel3.ChiselExecutionSuccess(
-          Some(chisel3.internal.firrtl.Circuit(_,_,annos)),_,
-          Some(firrtlResult)) => firrtlResult match {
-          case FirrtlExecutionSuccess(_,ast) => (Parser.parse(ast), annos)
-          case FirrtlExecutionFailure(m) =>
-            throw new FaultInstrumentationException(
-              s"FIRRTL inline compilation failed with '$m'")
-        }
+          Some(chisel3.internal.firrtl.Circuit(_,_,annos)),ast,_) =>
+          (Parser.parse(ast), annos)
         case chisel3.ChiselExecutionFailure(m) =>
           throw new FaultInstrumentationException(
             s"Chisel inline compilation failed with '$m'")
       }
+    val midFirrtl = (new MiddleFirrtlCompiler)
+      .compileAndEmit(CircuitState(chirrtl, ChirrtlForm))
+      .circuit
+      .mapModule(
+        _ match {
+          case m: Module    => m.copy(name = genName(m.name, ns))
+          case m: ExtModule => m.copy(name = genName(m.name, ns))
+        })
     CircuitState(
-      circuit =
-        midFirrtl
-          .mapModule(
-            _ match {
-              case m: Module    => m.copy(name = genName(m.name, ns))
-              case m: ExtModule => m.copy(name = genName(m.name, ns))
-            }),
+      circuit = midFirrtl,
       form = MidForm,
       annotations = Some(AnnotationMap(inlineAnnos)))
   }
@@ -128,11 +124,14 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
 
-            val (subcircuit, defms: Seq[DefModule]) = if (cmods.contains(gen_s)) {
-              (cmods(gen_s).circuit, Seq.empty)
+            val (subcircuit, defms, annosx) = if (cmods.contains(gen_s)) {
+              (cmods(gen_s).circuit, Seq.empty, Seq.empty)
             } else {
-              cmods(gen_s) = emitModules(gen_s, numBits, Some(circuitNamespace))
-              (cmods(gen_s).circuit, cmods(gen_s).circuit.modules)
+              cmods(gen_s) = inlineCompile(gen_s, numBits, Some(circuitNamespace))
+              (cmods(gen_s).circuit,
+               cmods(gen_s).circuit.modules,
+               if (cmods(gen_s).annotations.isEmpty) { Seq.empty }
+               else { cmods(gen_s).annotations.get.annotations   } )
             }
             val defi = moduleNamespace.newName(subcircuit.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
@@ -160,7 +159,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
                 conn
               ),
               modules = x.modules ++ defms,
-              annotations = x.annotations ++ Seq(
+              annotations = x.annotations ++ annosx ++ Seq(
                 Annotation(ComponentName(s"$defi.io.scan.en",
                                          ModuleName(m.name,
                                                     CircuitName(c.main))),
@@ -198,7 +197,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
     mods.map{ case (k, v) =>
       logger.info(s"[info] $k")
       logger.info(v.serialize("[info]   "))
-      logger.info(v.serializeInMemory("[info]   "))
+      // logger.info(v.serializeInMemory("[info]   "))
     }
 
     mods.toMap

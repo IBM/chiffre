@@ -4,6 +4,7 @@ package leChiffre
 
 import chisel3._
 import chisel3.util._
+import chisel3.experimental.ChiselAnnotation
 
 sealed class InjectorIo(n: Int) extends Bundle {
   val scan = new ScanIo
@@ -33,4 +34,8 @@ class InjectorNBit(n: Int, gen: => Injector) extends Injector(n) {
     }
   io.scan.out := scanLast
   io.out := Cat(injectors.map(_.io.out))
+
+  annotate(ChiselAnnotation(this,
+                            classOf[passes.ScanChainTransform],
+                            s"$bits"))
 }
