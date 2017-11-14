@@ -7,8 +7,6 @@ import firrtl.passes._
 import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
-import scala.language.experimental.macros
-import scala.reflect.macros.blackbox.Context
 
 case class FaultInstrumentationException(msg: String) extends PassException(msg)
 
@@ -24,20 +22,23 @@ case class Modifications(
 
   override def toString: String = serialize("")
 
-  def serialize(indent: String): String = s"""${indent}defines:${defines.map(a => s"$indent  - ${a.serialize}").foldLeft("")(_+"\n"+_)}
-${indent}connects:${connects.map(a => s"$indent  - ${a.serialize}").foldLeft("")(_+"\n"+_)}
-${indent}modules:${modules.map(a => s"$indent  - ${a.name}").foldLeft("")(_+"\n"+_)}
-${indent}annotations:${annotations.map(a => s"$indent  - ${a.serialize}").foldLeft("")(_+"\n"+_)}
-${indent}renames:${renames.map{case (a, b) => s"$indent  - $a: $b"}.foldLeft("")(_+"\n"+_)}"""
+  def serialize(indent: String): String =
+    s"""|${indent}defines:${defines.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
+        |${indent}connects:${connects.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
+        |${indent}modules:${modules.map(a => s"$indent  - ${a.name}").mkString("\n")}
+        |${indent}annotations:${annotations.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
+        |${indent}renames:${renames.map{case (a, b) => s"$indent  - $a: $b"}.mkString("\n")}""".stripMargin
 
-  def serializeInMemory(indent: String): String = s"""${indent}defines:${defines.map(a => s"$indent  - $a").foldLeft("")(_+"\n"+_)}
-${indent}connects:${connects.map(a => s"$indent  - $a").foldLeft("")(_+"\n"+_)}
-${indent}modules:${modules.map(a => s"$indent  - ${a.name}").foldLeft("")(_+"\n"+_)}
-${indent}annotations:${annotations.map(a => s"$indent  - $a").foldLeft("")(_+"\n"+_)}
-${indent}renames:${renames.map{case (a, b) => s"$indent  - $a: $b"}.foldLeft("")(_+"\n"+_)}"""
+  def serializeInMemory(indent: String): String =
+    s"""|${indent}defines:${defines.map(a => s"$indent  - $a").mkString("\n")}
+        |${indent}connects:${connects.map(a => s"$indent  - $a").mkString("\n")}
+        |${indent}modules:${modules.map(a => s"$indent  - ${a.name}").mkString("\n")}
+        |${indent}annotations:${annotations.map(a => s"$indent  - $a").mkString("\n")}
+        |${indent}renames:${renames.map{case (a, b) => s"$indent  - $a: $b"}.mkString("\n")}""".stripMargin
 }
 
-class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[String])]])
+class FaultInstrumentation(
+  compMap: Map[String, Seq[(ComponentName, String, String)]])
     extends Transform {
   def inputForm = MidForm
   def outputForm = MidForm
@@ -63,16 +64,17 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
                annotations = Some(AnnotationMap(inAnno ++ ax)))
   }
 
-  private def inlineCompile(name: String, width: Int,
+  private def inlineCompile(name: String, width: Int, id: String,
                             ns: Option[Namespace] = None): CircuitState = {
     def genName(name: String, n: Option[Namespace]): String = n match {
       case Some(nn) => nn.newName(name)
       case _ => name
     }
 
+    val args = Array[AnyRef](new java.lang.Integer(width), id)
     val gen = () => Class.forName(name)
       .getConstructors()(0)
-      .newInstance(new java.lang.Integer(width))
+      .newInstance(args:_*)
       .asInstanceOf[chisel3.Module]
     val options =
       new ExecutionOptionsManager("Fault Instrumentation Inline")
@@ -118,20 +120,21 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
           val moduleNamespace = Namespace(m)
           var scanIn: Option[String] = None
           var scanOut: String = ""
-          compMap(m.name) map { case (comp, gen_s, gen_params)  =>
+          compMap(m.name) map { case (comp, id, injector)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
             val width = getWidth(t)
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
 
-            val (subcircuit, defms, annosx) = if (cmods.contains(gen_s)) {
-              (cmods(gen_s).circuit, Seq.empty, Seq.empty)
+            val (subcircuit, defms, annosx) = if (cmods.contains(injector)) {
+              (cmods(injector).circuit, Seq.empty, Seq.empty)
             } else {
-              cmods(gen_s) = inlineCompile(gen_s, numBits, Some(circuitNamespace))
-              (cmods(gen_s).circuit,
-               cmods(gen_s).circuit.modules,
-               if (cmods(gen_s).annotations.isEmpty) { Seq.empty }
-               else { cmods(gen_s).annotations.get.annotations   } )
+              cmods(injector) = inlineCompile(injector, numBits, id,
+                                              Some(circuitNamespace))
+              (cmods(injector).circuit,
+               cmods(injector).circuit.modules,
+               if (cmods(injector).annotations.isEmpty) { Seq.empty }
+               else { cmods(injector).annotations.get.annotations   } )
             }
             val defi = moduleNamespace.newName(subcircuit.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
@@ -169,12 +172,17 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
                                          ModuleName(m.name,
                                                     CircuitName(c.main))),
                            classOf[firrtl.passes.wiring.WiringTransform],
-                           "sink scan_clk")),
+                           "sink scan_clk"),
+                Annotation(comp,
+                           classOf[leChiffre.passes.ScanChainTransform],
+                           s"injector:$id:$defi:${subcircuit.main}")),
               renames = x.renames ++ Map(comp.name -> rename)
             )
             scanOut = s"$defi.io.scan.out"
           }
 
+          // [todo] How should the scan chain ID be used here? (It
+          // shouldn't always be "main")
           val x = mods(m.name)
           mods(m.name) = x.copy(
             annotations = x.annotations ++ Seq(
@@ -182,12 +190,12 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Seq[
                                        ModuleName(m.name,
                                                   CircuitName(c.main))),
                          classOf[leChiffre.passes.ScanChainTransform],
-                         "slave:in:main"),
+                         s"slave:in:main"),
               Annotation(ComponentName(scanOut,
                                        ModuleName(m.name,
                                                   CircuitName(c.main))),
                          classOf[leChiffre.passes.ScanChainTransform],
-                         "slave:out:main")
+                         s"slave:out:main")
             )
           )
         case m: ExtModule =>

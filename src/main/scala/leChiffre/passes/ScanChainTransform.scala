@@ -5,11 +5,47 @@ import firrtl._
 import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
+import java.io.FileWriter
+
+case class ScanChainException(msg: String) extends PassException(msg)
+
+case class ScanChain(
+  masterIn: ComponentName,
+  masterOut: Option[ComponentName] = None,
+  slaveIn: Seq[ComponentName] = Seq.empty,
+  slaveOut: Map[String, ComponentName] = Map.empty,
+  injectors: Map[ComponentName, ModuleName] = Map.empty,
+  description: Map[ModuleName, Seq[(String, Int)]] = Map.empty) {
+  def serialize(tab: String): String =
+    s"""|$tab master:
+        |$tab   in: ${masterIn.name}
+        |$tab   out: ${masterOut.getOrElse("none")}
+        |$tab slaves:${slaveIn.map( x=> s"$tab  - ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").mkString("\n")}
+        |$tab injectors:${injectors.map{case (k,v)=>s"$tab  - ${k.module.name + "." + k.name}: ${v.name}"}.mkString("\n")}
+        |$tab description:${description.map{case(k,v)=>s"$tab  - ${k.name}: $v"}.mkString("\n")}""".stripMargin
+
+  def asYaml(comp: Seq[ComponentName] = this.slaveIn, tab: String = ""): String = {
+    def asYaml(description: Seq[(String, Int)], tab: String = ""): String = {
+      description.map{ case (name, size) => s"$tab- $name: $size" }.mkString("\n")
+    }
+
+    slaveIn.map{ s =>
+      val componentString = s"${s.module.name}.${s.name}"
+      injectors
+        .filter{ case (ComponentName(_, m), _) => m == s.module }
+        .map{ case (f, mm) =>
+          val id = s"${f.module.circuit.name}.${f.module.name}.${f.name}"
+          Seq(s"$tab- $id:",
+              asYaml(description(mm), tab + "  ")).mkString("\n")
+        }.mkString("\n")
+    }.mkString("\n")
+  }
+}
 
 object ScanChainAnnotation {
   def apply(comp: ComponentName, ctrl: String, dir: String, id: String): Annotation =
     Annotation(comp, classOf[ScanChainTransform], s"$ctrl:$dir:$id")
-  val matcher = raw"(\w+):(\w+):(\w+)".r
+  val matcher = raw"(master|slave):(\w+):(\w+)".r
   def unapply(a: Annotation): Option[(ComponentName, String, String, String)] = a match {
     case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id)) =>
       Some(ComponentName(n, m), ctrl, dir, id)
@@ -17,15 +53,39 @@ object ScanChainAnnotation {
   }
 }
 
-case class ScanChain(
-  masterIn: ComponentName,
-  masterOut: Option[ComponentName] = None,
-  slaveIn: Seq[ComponentName] = Seq.empty,
-  slaveOut: Map[String, ComponentName] = Map.empty) {
-  def serialize(tab: String): String = s"""$tab master:
-$tab   in: ${masterIn.name}
-$tab   out: ${masterOut.getOrElse("none")}
-$tab slaves:${slaveIn.map( x=> s"$tab  - ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").foldLeft("")(_+"\n"+_)}"""
+object ScanChainInjector {
+  def apply(comp: ComponentName, instanceName: String,
+            moduleName: String): Annotation =
+    Annotation(comp, classOf[ScanChainTransform],
+               s"injector:$instanceName:$moduleName")
+  val matcher = raw"injector:(.+):(.+):(.+)".r
+  def unapply(a: Annotation): Option[(ComponentName, String, String, String)] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(id, instanceName, moduleName)) =>
+      Some((ComponentName(n, m), id, instanceName, moduleName))
+    case _ => None
+  }
+}
+
+object ScanChainDescription {
+  def apply(mod: ModuleName, id: String, d: Seq[(String, Int)]): Annotation =
+    Annotation(mod, classOf[ScanChainTransform],
+               s"description:$id:" +
+                 d.map{ case (name, size) => s"$name,$size;" }.reduce(_+_) )
+
+  def extract(x: String): Seq[(String, Int)] = {
+    val matcher = raw"(.+?),(\d+);(.+)?".r
+    x match {
+      case matcher(name, size, null) => Seq((name, size.toInt))
+      case matcher(name, size, tail) => Seq((name, size.toInt)) ++ extract(tail)
+    }
+  }
+  val matcher = raw"description:(.+?):(.+)".r
+  def unapply(a: Annotation):
+      Option[(ModuleName, String, Seq[(String, Int)])] = a match {
+    case Annotation(ModuleName(m, c), _, matcher(id, raw)) =>
+      Some((ModuleName(m, c), id, extract(raw)))
+    case _ => None
+  }
 }
 
 class ScanChainTransform extends Transform {
@@ -42,18 +102,32 @@ class ScanChainTransform extends Transform {
         case ScanChainAnnotation(comp, ctrl, dir, id) => (ctrl, dir) match {
           case ("master", "in") => s(id) = ScanChain(masterIn = comp)
           case _ =>
-        }}
+        }
+        case _ =>
+      }
       p.foreach {
         case ScanChainAnnotation(comp, ctrl, dir, id) => s(id) = (ctrl, dir) match {
           case ("master", "out") => s(id).copy(masterOut = Some(comp))
           case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn :+ comp)
           case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++ Map(comp.module.name -> comp))
           case _ => s(id)
-        }}
+        }
+        case ScanChainInjector(comp, id, inst, mod) => s(id) = s(id)
+            .copy(injectors = s(id).injectors ++
+                    Map(comp -> ModuleName(mod, comp.module.circuit)))
+        case _ =>
+      }
+      p.foreach {
+        case ScanChainDescription(mod, id, d) => s(id) = s(id)
+            .copy(description = s(id).description ++
+                    Map(ModuleName(mod.name, CircuitName(state.circuit.main)) -> d))
+        case _ =>
+      }
 
-      s.map{ case (k, v) => logger.info(s"""[info] scan chain:
-[info]   name: ${k}
-${v.serialize("[info]   ")}""") }
+      s.map{ case (k, v) =>logger.info(
+              s"""|[info] scan chain:
+                  |[info]   name: ${k}
+                  |${v.serialize("[info]   ")}""".stripMargin) }
 
       // [todo] Order the scan chain to minimize distance. Roughly,
       // this should start from each source ("scan out") and connect
@@ -61,10 +135,20 @@ ${v.serialize("[info]   ")}""") }
       // BFS. This should then be `O(n * m)` for `n` scan chain nodes
       // in a circuit with `m` instances.
 
+      // [todo] Set the emitted directory and file name (via another
+      // annotation?)
+      val scanFile = "generated-src-debug/scan-chain.yaml"
+      val w = new FileWriter(scanFile)
+      w.write(s.map{ case(k, v) =>
+                Seq(s"$k:",
+                    v.asYaml(tab="  ")).mkString("\n") }.mkString("\n"))
+      w.close()
+
       val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
         val chain = (v.masterOut.get +:
                        v.slaveIn.flatMap(l => Seq(l, v.slaveOut(l.module.name))) :+
                        v.masterIn)
+
         val annotations = chain
           .grouped(2).zipWithIndex
           .flatMap{ case (Seq(l, r), i) =>

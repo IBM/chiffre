@@ -7,26 +7,14 @@ import firrtl.annotations._
 import scala.collection.mutable
 
 object FaultInjectionAnnotation {
-  def apply(comp: ComponentName, injector: String, params: Seq[String]): Annotation = {
-    val raw_params = params.foldLeft("")(_ + ":" + _)
-    Annotation(comp, classOf[FaultInstrumentationTransform], s"$injector$raw_params")
+  def apply(comp: ComponentName, id: String, injector: String): Annotation = {
+    Annotation(comp, classOf[FaultInstrumentationTransform], s"$injector:$id:$injector")
   }
 
-  private def extractParams(x: String): Seq[String] = {
-    val matcher = raw"(.+?)(:(.*))?".r
-    x match {
-      case matcher(car, _, null) => Seq(car)
-      case matcher(car, _, cdr) => Seq(car) ++ extractParams(cdr)
-      case _ => Seq()
-    }
-  }
-
-  val matcher = raw"injector:(.+)".r
-  def unapply(a: Annotation): Option[(ComponentName, String, Seq[String])] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(raw_params)) => {
-      val injector :: params = extractParams(raw_params)
-      Some(ComponentName(n, m), injector, params)
-    }
+  val matcher = raw"injector:(.+?):(.+)".r
+  def unapply(a: Annotation): Option[(ComponentName, String, String)] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(id, injector)) =>
+      Some(ComponentName(n, m), id, injector)
     case _ => None
   }
 }
@@ -34,7 +22,7 @@ object FaultInjectionAnnotation {
 class FaultInstrumentationTransform extends Transform {
   def inputForm = MidForm
   def outputForm = MidForm
-  def transforms(compMap: Map[String, Seq[(ComponentName, String, Seq[String])]]):
+  def transforms(compMap: Map[String, Seq[(ComponentName, String, String)]]):
       Seq[Transform] = Seq(
     new FaultInstrumentation(compMap),
     new firrtl.passes.wiring.WiringTransform,
@@ -46,10 +34,10 @@ class FaultInstrumentationTransform extends Transform {
       val orig = mutable.HashMap[String, Seq[(Int, ComponentName)]]()
       val conn = mutable.HashMap[String, Map[Int, ComponentName]]()
       val repl = mutable.HashMap[String, Map[Int, ComponentName]]()
-      val comp = mutable.HashMap[String, Seq[(ComponentName, String, Seq[String])]]()
+      val comp = mutable.HashMap[String, Seq[(ComponentName, String, String)]]()
       p.foreach {
-        case FaultInjectionAnnotation(c, i, p) =>
-          comp(c.module.name) = comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, p)
+        case FaultInjectionAnnotation(c, i, j) =>
+          comp(c.module.name) = comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, j)
         case _ => throw new
             FaultInstrumentationException("Unknown fault annotation type")}
 

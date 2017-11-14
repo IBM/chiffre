@@ -5,12 +5,12 @@ package leChiffre
 import chisel3._
 import chisel3.util._
 
-class LfsrInjector(lfsrWidth: Int) extends OneBitInjector {
+class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   val enabled = Reg(init = false.B)
   val difficulty = Reg(init = 0.U(lfsrWidth.W))
   val seed = Reg(init = 1.U(lfsrWidth.W))
 
-  val bits = Seq( ("seed", lfsrWidth), ("difficulty", lfsrWidth) )
+  lazy val bits = Seq( ("seed", lfsrWidth), ("difficulty", lfsrWidth) )
 
   val lfsr = Module(new perfect.random.Lfsr(lfsrWidth))
   lfsr.io.seed.valid := io.scan.en
@@ -30,4 +30,5 @@ class LfsrInjector(lfsrWidth: Int) extends OneBitInjector {
   when (io.scan.en) { enabled := true.B }
 }
 
-class LfsrInjector32(n: Int) extends InjectorNBit(n, new LfsrInjector(32))
+class LfsrInjector32(n: Int, id: String)
+    extends InjectorNBit(n, id, new LfsrInjector(32, id))

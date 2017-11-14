@@ -12,15 +12,15 @@ sealed class InjectorIo(n: Int) extends Bundle {
   val out = Output(UInt(n.W))
 }
 
-sealed abstract class Injector(n: Int) extends Module with AddsScanState {
+sealed abstract class Injector(n: Int, id: String) extends Module with AddsScanState {
   val io = IO(new InjectorIo(n))
 }
 
-abstract class OneBitInjector extends Injector(1)
+abstract class OneBitInjector(id: String) extends Injector(1, id)
 
-class InjectorNBit(n: Int, gen: => Injector) extends Injector(n) {
+class InjectorNBit(n: Int, id: String, gen: => Injector) extends Injector(n, id) {
   val injectors = Seq.fill(n)(Module(gen))
-  val bits = injectors.foldLeft(Seq[(String, Int)]()){ case (a, b) => a ++ b.bits }
+  lazy val bits = injectors.foldLeft(Seq[(String, Int)]()){ case (a, b) => a ++ b.bits }
 
   var scanLast = io.scan.in
   injectors
@@ -35,7 +35,9 @@ class InjectorNBit(n: Int, gen: => Injector) extends Injector(n) {
   io.scan.out := scanLast
   io.out := Cat(injectors.map(_.io.out))
 
-  annotate(ChiselAnnotation(this,
-                            classOf[passes.ScanChainTransform],
-                            s"$bits"))
+  annotate(
+    ChiselAnnotation(
+      this,
+      classOf[passes.ScanChainTransform],
+      s"""description:$id:${bits.map{case (a,b) => s"$a,$b;"}.mkString}"""))
 }

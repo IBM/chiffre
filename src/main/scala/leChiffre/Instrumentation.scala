@@ -48,12 +48,13 @@ trait ChiffreController {
 trait ChiffreInjectee {
   self: Module =>
 
-  def isFaulty[T <: InjectorNBit](component: InstanceId, tpe: Class[T]): Unit = {
+  def isFaulty[T <: InjectorNBit](component: InstanceId, id: String,
+                                  tpe: Class[T]): Unit = {
     component match {
       case c: Bits =>
         annotate(ChiselAnnotation(c,
           classOf[passes.FaultInstrumentationTransform],
-          s"injector:${tpe.getName}"))
+          s"injector:$id:${tpe.getName}"))
       case c => throw new Exception(s"Type not implemented for: $c")
     }
   }
