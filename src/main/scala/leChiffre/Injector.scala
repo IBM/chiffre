@@ -5,6 +5,9 @@ package leChiffre
 import chisel3._
 import chisel3.util._
 import chisel3.experimental.ChiselAnnotation
+import leChiffre.scanChain._
+import ScanChainProtocol._
+import net.jcazevedo.moultingyaml._
 
 sealed class InjectorIo(n: Int) extends Bundle {
   val scan = new ScanIo
@@ -20,7 +23,7 @@ abstract class OneBitInjector(id: String) extends Injector(1, id)
 
 class InjectorNBit(n: Int, id: String, gen: => Injector) extends Injector(n, id) {
   val injectors = Seq.fill(n)(Module(gen))
-  lazy val bits = injectors.foldLeft(Seq[(String, Int)]()){ case (a, b) => a ++ b.bits }
+  lazy val bits = injectors.foldLeft(Seq[ScanField]()){ case (a, b) => a ++ b.bits }
 
   var scanLast = io.scan.in
   injectors
@@ -39,5 +42,5 @@ class InjectorNBit(n: Int, id: String, gen: => Injector) extends Injector(n, id)
     ChiselAnnotation(
       this,
       classOf[passes.ScanChainTransform],
-      s"""description:$id:${bits.map{case (a,b) => s"$a,$b;"}.mkString}"""))
+      s"""description:$id:${bits.toYaml.prettyPrint}"""))
 }

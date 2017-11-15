@@ -7,6 +7,8 @@ import firrtl.annotations._
 import scala.collection.mutable
 import java.io.FileWriter
 import leChiffre.scanChain._
+import ScanChainProtocol._
+import net.jcazevedo.moultingyaml._
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
@@ -16,7 +18,7 @@ case class ScanChainInfo(
   slaveIn: Seq[ComponentName] = Seq.empty,
   slaveOut: Map[String, ComponentName] = Map.empty,
   injectors: Map[ComponentName, ModuleName] = Map.empty,
-  description: Map[ModuleName, Seq[(String, Int)]] = Map.empty) {
+  description: Map[ModuleName, Seq[ScanField]] = Map.empty) {
   def serialize(tab: String): String =
     s"""|$tab master:
         |$tab   in: ${masterIn.name}
@@ -63,23 +65,16 @@ object ScanChainInjector {
 }
 
 object ScanChainDescription {
-  def apply(mod: ModuleName, id: String, d: Seq[(String, Int)]): Annotation =
+  def apply(mod: ModuleName, id: String, d: Seq[ScanField]): Annotation =
     Annotation(mod, classOf[ScanChainTransform],
                s"description:$id:" +
-                 d.map{ case (name, size) => s"$name,$size;" }.reduce(_+_) )
+                 d.map(_.toYaml.prettyPrint).mkString )
 
-  def extract(x: String): Seq[(String, Int)] = {
-    val matcher = raw"(.+?),(\d+);(.+)?".r
-    x match {
-      case matcher(name, size, null) => Seq((name, size.toInt))
-      case matcher(name, size, tail) => Seq((name, size.toInt)) ++ extract(tail)
-    }
-  }
-  val matcher = raw"description:(.+?):(.+)".r
+  val matcher = raw"(?s)description:(.+?):(.+)".r
   def unapply(a: Annotation):
-      Option[(ModuleName, String, Seq[(String, Int)])] = a match {
+      Option[(ModuleName, String, Seq[ScanField])] = a match {
     case Annotation(ModuleName(m, c), _, matcher(id, raw)) =>
-      Some((ModuleName(m, c), id, extract(raw)))
+      Some((ModuleName(m, c), id, raw.parseYaml.convertTo[Seq[ScanField]]))
     case _ => None
   }
 }
@@ -114,9 +109,12 @@ class ScanChainTransform extends Transform {
         case _ =>
       }
       p.foreach {
-        case ScanChainDescription(mod, id, d) => s(id) = s(id)
+        case ScanChainDescription(mod, id, d) => {
+          println(s"[ingo] description is: $d")
+          s(id) = s(id)
             .copy(description = s(id).description ++
                     Map(ModuleName(mod.name, CircuitName(state.circuit.main)) -> d))
+        }
         case _ =>
       }
 

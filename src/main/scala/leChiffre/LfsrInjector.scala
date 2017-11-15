@@ -4,13 +4,14 @@ package leChiffre
 
 import chisel3._
 import chisel3.util._
+import leChiffre.scanChain._
 
 class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   val enabled = Reg(init = false.B)
   val difficulty = Reg(init = 0.U(lfsrWidth.W))
   val seed = Reg(init = 1.U(lfsrWidth.W))
 
-  lazy val bits = Seq( ("seed", lfsrWidth), ("difficulty", lfsrWidth) )
+  lazy val bits = Seq( Seed(lfsrWidth), Difficulty(lfsrWidth) )
 
   val lfsr = Module(new perfect.random.Lfsr(lfsrWidth))
   lfsr.io.seed.valid := io.scan.en
