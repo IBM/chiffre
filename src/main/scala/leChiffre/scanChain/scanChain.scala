@@ -2,7 +2,7 @@
 
 package leChiffre
 
-package object passes {
+package object scanChain {
   case class Component(name: String, fields: Seq[(String, Int)])
 
   import net.jcazevedo.moultingyaml.DefaultYamlProtocol

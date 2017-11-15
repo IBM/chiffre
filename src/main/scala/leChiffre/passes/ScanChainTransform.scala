@@ -6,6 +6,7 @@ import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
 import java.io.FileWriter
+import leChiffre.scanChain._
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
