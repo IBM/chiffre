@@ -9,7 +9,7 @@ import java.io.FileWriter
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
-case class ScanChain(
+case class ScanChainInfo(
   masterIn: ComponentName,
   masterOut: Option[ComponentName] = None,
   slaveIn: Seq[ComponentName] = Seq.empty,
@@ -20,25 +20,20 @@ case class ScanChain(
     s"""|$tab master:
         |$tab   in: ${masterIn.name}
         |$tab   out: ${masterOut.getOrElse("none")}
-        |$tab slaves:${slaveIn.map( x=> s"$tab  - ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").mkString("\n")}
-        |$tab injectors:${injectors.map{case (k,v)=>s"$tab  - ${k.module.name + "." + k.name}: ${v.name}"}.mkString("\n")}
-        |$tab description:${description.map{case(k,v)=>s"$tab  - ${k.name}: $v"}.mkString("\n")}""".stripMargin
+        |$tab slaves:${slaveIn.map( x=> s"$tab  ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").mkString("\n")}
+        |$tab injectors:${injectors.map{case (k,v)=>s"$tab  ${k.module.name + "." + k.name}: ${v.name}"}.mkString("\n")}
+        |$tab description:${description.map{case(k,v)=>s"$tab  ${k.name}: $v"}.mkString("\n")}""".stripMargin
 
-  def asYaml(comp: Seq[ComponentName] = this.slaveIn, tab: String = ""): String = {
-    def asYaml(description: Seq[(String, Int)], tab: String = ""): String = {
-      description.map{ case (name, size) => s"$tab- $name: $size" }.mkString("\n")
-    }
-
-    slaveIn.map{ s =>
-      val componentString = s"${s.module.name}.${s.name}"
+  def toScanChain(name: String): ScanChain = {
+    val components: Seq[Component] = slaveIn.flatMap{ s =>
       injectors
         .filter{ case (ComponentName(_, m), _) => m == s.module }
         .map{ case (f, mm) =>
           val id = s"${f.module.circuit.name}.${f.module.name}.${f.name}"
-          Seq(s"$tab- $id:",
-              asYaml(description(mm), tab + "  ")).mkString("\n")
-        }.mkString("\n")
-    }.mkString("\n")
+          Component(id, description(mm))
+        }
+    }
+    Map(name -> components)
   }
 }
 
@@ -97,10 +92,10 @@ class ScanChainTransform extends Transform {
   def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
     case Nil => state
     case p =>
-      val s = mutable.HashMap[String, ScanChain]()
+      val s = mutable.HashMap[String, ScanChainInfo]()
       p.foreach {
         case ScanChainAnnotation(comp, ctrl, dir, id) => (ctrl, dir) match {
-          case ("master", "in") => s(id) = ScanChain(masterIn = comp)
+          case ("master", "in") => s(id) = ScanChainInfo(masterIn = comp)
           case _ =>
         }
         case _ =>
@@ -139,9 +134,15 @@ class ScanChainTransform extends Transform {
       // annotation?)
       val scanFile = "generated-src-debug/scan-chain.yaml"
       val w = new FileWriter(scanFile)
-      w.write(s.map{ case(k, v) =>
-                Seq(s"$k:",
-                    v.asYaml(tab="  ")).mkString("\n") }.mkString("\n"))
+      val sc = s.map{ case(k, v) => v.toScanChain(k) }
+        .reduce(_ ++ _)
+
+      import ScanChainProtocol._
+      import net.jcazevedo.moultingyaml._
+
+      println(sc)
+      w.write(sc.toYaml.prettyPrint)
+
       w.close()
 
       val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
