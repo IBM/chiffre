@@ -6,7 +6,7 @@ import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
 import java.io.FileWriter
-import leChiffre.scanChain._
+import leChiffre.scan._
 import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
 

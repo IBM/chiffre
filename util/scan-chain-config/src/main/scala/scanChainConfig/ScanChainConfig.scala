@@ -10,13 +10,33 @@ import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
 
 case class Arguments(
-  scanChainFileName: File = new File(".")
+  scanChainFileName: File = new File("."),
+  verbose: Boolean = false
 )
 
+object ScanChainUtils {
+  def getLength(s: Seq[Component]): Int = s
+    .foldLeft(0) { case (lenC, f) => lenC +
+      f.fields.foldLeft(0) { case (lenF, sf) => lenF +
+        (sf match {
+           case Seed(w) => w
+           case Difficulty(w) => w
+           case _ => 0
+         })
+      }
+    }
+
+  def getComponentNames(s: Seq[Component]): Seq[String] = s
+    .map(_.name)
+}
+
 object Main extends App {
-  val parser = new scopt.OptionParser[Arguments]("scopt") {
+  val parser = new scopt.OptionParser[Arguments]("ScanChainConfig") {
     help("help").text("prints this usage text")
 
+    opt[Unit]("verbose")
+      .action( (_, c) => c.copy(verbose = true) )
+      .text("Enable verbose output")
     arg[File]("scan.yaml")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
@@ -25,10 +45,18 @@ object Main extends App {
 
   val Some(opt) = parser.parse(args, Arguments())
 
-  val yaml = Source.fromFile(opt.scanChainFileName)
+  val chains = Source.fromFile(opt.scanChainFileName)
     .mkString
     .parseYaml
     .convertTo[ScanChain]
 
-  yaml.foreach{ case (k, v) => println(s"  [info] Found scan chain '$k'") }
+  if (opt.verbose) {
+    chains.foreach{ case (k, v) =>
+      println(
+        s"  [info] Found scan chain '$k' of length ${ScanChainUtils.getLength(v)}b")
+      println(
+        ScanChainUtils.getComponentNames(v).foreach{ n =>
+          println(s"  [info]   - $n") })
+    }
+  }
 }

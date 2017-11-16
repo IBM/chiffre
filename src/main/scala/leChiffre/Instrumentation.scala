@@ -1,5 +1,4 @@
 // See LICENSE.IBM for license details.
-
 package leChiffre
 
 import chisel3._
@@ -7,6 +6,7 @@ import chisel3.util._
 import chisel3.internal.InstanceId
 import chisel3.experimental.ChiselAnnotation
 import scala.collection.mutable
+import leChiffre.scan._
 
 trait ChiffreController {
   self: Module =>
@@ -48,8 +48,8 @@ trait ChiffreController {
 trait ChiffreInjectee {
   self: Module =>
 
-  def isFaulty[T <: InjectorNBit](component: InstanceId, id: String,
-                                  tpe: Class[T]): Unit = {
+  def isFaulty[T <: inject.Injector](component: InstanceId, id: String,
+                                     tpe: Class[T]): Unit = {
     component match {
       case c: Bits =>
         annotate(ChiselAnnotation(c,
