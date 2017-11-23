@@ -35,7 +35,7 @@ abstract class InjectorPrimitive(n: Int, id: String) extends InjectorLike(n, id)
 abstract class Injector(n: Int, id: String) extends InjectorLike(n, id) {
   if (bits == null) {
     throw new FaultInstrumentationException(
-      "Children of class Injector must use a `lazy val` for member `bits`") }
+      "Children of class Injector must use a `lazy val` for abstract member `bits`") }
   annotate(
     ChiselAnnotation(
       this,
