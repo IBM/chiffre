@@ -1,7 +1,8 @@
 // See LICENSE.ibm for license details.
-package leChiffre.scan
+package leChiffre
 
 import chisel3._
+import leChiffre.scan.ScanField
 
 class ScanIo extends Bundle {
   val clk = Input(Bool())

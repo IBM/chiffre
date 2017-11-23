@@ -4,7 +4,7 @@ package scanChainConfig
 import scopt._
 import java.io.File
 import scala.io.Source
-import leChiffre.scanChain._
+import leChiffre.scan._
 
 import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._

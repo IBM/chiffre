@@ -122,6 +122,11 @@ class FaultInstrumentation(
           var scanOut: String = ""
           compMap(m.name) map { case (comp, id, injector)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
+            t match {
+              case _: GroundType =>
+              case _ => throw new FaultInstrumentationException(
+                "[todo] Only able to currently instrument GroundType components")
+            }
             val width = getWidth(t)
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
