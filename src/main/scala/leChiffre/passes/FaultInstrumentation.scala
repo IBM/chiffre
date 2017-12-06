@@ -23,18 +23,30 @@ case class Modifications(
   override def toString: String = serialize("")
 
   def serialize(indent: String): String =
-    s"""|${indent}defines:${defines.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
-        |${indent}connects:${connects.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
-        |${indent}modules:${modules.map(a => s"$indent  - ${a.name}").mkString("\n")}
-        |${indent}annotations:${annotations.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
-        |${indent}renames:${renames.map{case (a, b) => s"$indent  - $a: $b"}.mkString("\n")}""".stripMargin
+    s"""|${indent}defines:
+        |${defines.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
+        |${indent}connects:
+        |${connects.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
+        |${indent}modules:
+        |${modules.map(a => s"$indent  - ${a.name}").mkString("\n")}
+        |${indent}annotations:
+        |${annotations.map(a => s"$indent  - ${a.serialize}").mkString("\n")}
+        |${indent}renames:
+        |${renames.map{case (a, b) => s"$indent  - $a: $b"}.mkString("\n")}"""
+      .stripMargin
 
   def serializeInMemory(indent: String): String =
-    s"""|${indent}defines:${defines.map(a => s"$indent  - $a").mkString("\n")}
-        |${indent}connects:${connects.map(a => s"$indent  - $a").mkString("\n")}
-        |${indent}modules:${modules.map(a => s"$indent  - ${a.name}").mkString("\n")}
-        |${indent}annotations:${annotations.map(a => s"$indent  - $a").mkString("\n")}
-        |${indent}renames:${renames.map{case (a, b) => s"$indent  - $a: $b"}.mkString("\n")}""".stripMargin
+    s"""|${indent}defines:
+        |${defines.map(a => s"$indent  - $a").mkString("\n")}
+        |${indent}connects:
+        |${connects.map(a => s"$indent  - $a").mkString("\n")}
+        |${indent}modules:
+        |${modules.map(a => s"$indent  - ${a.name}").mkString("\n")}
+        |${indent}annotations:
+        |${annotations.map(a => s"$indent  - $a").mkString("\n")}
+        |${indent}renames:
+        |${renames.map{case (a, b) => s"$indent  - $a: $b"}.mkString("\n")}"""
+      .stripMargin
 }
 
 class FaultInstrumentation(

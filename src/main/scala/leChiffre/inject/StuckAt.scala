@@ -10,7 +10,7 @@ class StuckAt(n: Int, id: String) extends Injector(n, id) {
   val value = Reg(UInt(n.W))
   val enabled = Reg(init = false.B)
 
-  lazy val bits = Seq( Mask(n) )
+  lazy val info = StuckAtInjectorInfo(n)
 
   io.out := enabled & (
     (!mask & io.in) | ((mask & io.in) & value) | ((mask & !io.in) | value) )

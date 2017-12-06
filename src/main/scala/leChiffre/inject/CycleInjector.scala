@@ -11,7 +11,7 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
   val flipMask = Reg(UInt(n.W))
   val enabled = Reg(init = false.B)
 
-  lazy val bits = Seq( Cycle(cycleWidth), Mask(n) )
+  lazy val info = CycleInjectorInfo(n, cycleWidth)
 
   val fire = enabled & (cycleCounter === cycleTarget)
   io.out := Mux(fire, io.in ^ flipMask, io.in)

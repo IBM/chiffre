@@ -15,18 +15,17 @@ case class Arguments(
 )
 
 object ScanChainUtils {
-  def getLength(s: Seq[Component]): Int = s
+  def getLength(s: Seq[FaultyComponent]): Int = s
     .foldLeft(0) { case (lenC, f) => lenC +
-      f.fields.foldLeft(0) { case (lenF, sf) => lenF +
-        (sf match {
-           case Seed(w) => w
-           case Difficulty(w) => w
-           case _ => 0
-         })
-      }
+      (f.injector match {
+         case LfsrInjectorInfo(width, lfsrWidth) => width * lfsrWidth
+         case CycleInjectorInfo(width, cycleWidth) => width + cycleWidth
+         case StuckAtInjectorInfo(width) => width
+         case _ => 0
+       })
     }
 
-  def getComponentNames(s: Seq[Component]): Seq[String] = s
+  def getComponentNames(s: Seq[FaultyComponent]): Seq[String] = s
     .map(_.name)
 }
 

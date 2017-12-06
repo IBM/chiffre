@@ -33,24 +33,23 @@ abstract class InjectorPrimitive(n: Int, id: String) extends InjectorLike(n, id)
 
 /** An injector that adds bits to the scan chain */
 abstract class Injector(n: Int, id: String) extends InjectorLike(n, id) {
-  if (bits == null) {
+  if (info == null) {
     throw new FaultInstrumentationException(
-      "Children of class Injector must use a `lazy val` for abstract member `bits`") }
+      "Children of class Injector must use a `lazy val` for abstract member `info`") }
   annotate(
     ChiselAnnotation(
       this,
       classOf[ScanChainTransform],
-      s"""description:$id:${bits.toYaml.prettyPrint}"""))
+      s"""description:$id:${info.toYaml.prettyPrint}"""))
 }
 
 /** A one-bit injector primmitive */
 abstract class OneBitInjector(id: String) extends InjectorPrimitive(1, id)
 
 /** An injector composed of individual single-bit injectors */
-class InjectorBitwise(n: Int, id: String, gen: => OneBitInjector)
+abstract class InjectorBitwise(n: Int, id: String, gen: => OneBitInjector)
     extends Injector(n, id) {
   lazy val injectors = Seq.fill(n)(Module(gen))
-  lazy val bits = injectors.foldLeft(Seq[ScanField]()){ case (a, b) => a ++ b.bits }
 
   var scanLast = io.scan.in
   injectors

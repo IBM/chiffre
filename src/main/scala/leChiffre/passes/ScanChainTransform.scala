@@ -18,22 +18,26 @@ case class ScanChainInfo(
   slaveIn: Seq[ComponentName] = Seq.empty,
   slaveOut: Map[String, ComponentName] = Map.empty,
   injectors: Map[ComponentName, ModuleName] = Map.empty,
-  description: Map[ModuleName, Seq[ScanField]] = Map.empty) {
+  description: Map[ModuleName, InjectorInfo] = Map.empty) {
   def serialize(tab: String): String =
     s"""|$tab master:
         |$tab   in: ${masterIn.name}
         |$tab   out: ${masterOut.getOrElse("none")}
-        |$tab slaves:${slaveIn.map( x=> s"$tab  ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").mkString("\n")}
-        |$tab injectors:${injectors.map{case (k,v)=>s"$tab  ${k.module.name + "." + k.name}: ${v.name}"}.mkString("\n")}
-        |$tab description:${description.map{case(k,v)=>s"$tab  ${k.name}: $v"}.mkString("\n")}""".stripMargin
+        |$tab slaves:
+        |${slaveIn.map( x=> s"$tab  ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").mkString("\n")}
+        |$tab injectors:
+        |${injectors.map{case (k,v)=>s"$tab  ${k.module.name + "." + k.name}: ${v.name}"}.mkString("\n")}
+        |$tab description:
+        |${description.map{case(k,v)=>s"$tab  ${k.name}: $v"}.mkString("\n")}"""
+      .stripMargin
 
   def toScanChain(name: String): ScanChain = {
-    val components: Seq[Component] = slaveIn.flatMap{ s =>
+    val components: Seq[FaultyComponent] = slaveIn.flatMap{ s =>
       injectors
         .filter{ case (ComponentName(_, m), _) => m == s.module }
         .map{ case (f, mm) =>
           val id = s"${f.module.circuit.name}.${f.module.name}.${f.name}"
-          Component(id, description(mm))
+          FaultyComponent(id, description(mm))
         }
     }
     Map(name -> components)
@@ -65,16 +69,15 @@ object ScanChainInjector {
 }
 
 object ScanChainDescription {
-  def apply(mod: ModuleName, id: String, d: Seq[ScanField]): Annotation =
+  def apply(mod: ModuleName, id: String, d: InjectorInfo): Annotation =
     Annotation(mod, classOf[ScanChainTransform],
-               s"description:$id:" +
-                 d.map(_.toYaml.prettyPrint).mkString )
+               s"description:$id:" + (d.toYaml.prettyPrint).mkString )
 
   val matcher = raw"(?s)description:(.+?):(.+)".r
   def unapply(a: Annotation):
-      Option[(ModuleName, String, Seq[ScanField])] = a match {
+      Option[(ModuleName, String, InjectorInfo)] = a match {
     case Annotation(ModuleName(m, c), _, matcher(id, raw)) =>
-      Some((ModuleName(m, c), id, raw.parseYaml.convertTo[Seq[ScanField]]))
+      Some((ModuleName(m, c), id, raw.parseYaml.convertTo[InjectorInfo]))
     case _ => None
   }
 }
@@ -110,7 +113,7 @@ class ScanChainTransform extends Transform {
       }
       p.foreach {
         case ScanChainDescription(mod, id, d) => {
-          println(s"[ingo] description is: $d")
+          println(s"[info] description is: $d")
           s(id) = s(id)
             .copy(description = s(id).description ++
                     Map(ModuleName(mod.name, CircuitName(state.circuit.main)) -> d))

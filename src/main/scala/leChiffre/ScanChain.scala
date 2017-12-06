@@ -2,7 +2,7 @@
 package leChiffre
 
 import chisel3._
-import leChiffre.scan.ScanField
+import leChiffre.scan.InjectorInfo
 
 class ScanIo extends Bundle {
   val clk = Input(Bool())
@@ -14,7 +14,5 @@ class ScanIo extends Bundle {
 trait AddsScanState {
   self: Module =>
 
-  /** Encodes the names and widths of fields that this injector adds to
-    * the scan chain */
-  def bits: Seq[ScanField]
+  def info: InjectorInfo
 }
