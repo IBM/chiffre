@@ -14,11 +14,14 @@ case class ScanChainException(msg: String) extends Exception(msg)
 case class Arguments(
   scanChainFileName: File = new File("."),
   verbose: Boolean = false,
-  probability: Option[Double] = None
+  probability: Option[Double] = None,
+  seed: Option[Int] = None
 )
 
-object ScanChainUtils {
-  lazy val rand = new scala.util.Random()
+class ScanChainUtils(implicit opt: Arguments) {
+  val rand =
+    if (!opt.seed.isEmpty) new scala.util.Random(opt.seed.get)
+    else new scala.util.Random()
 
   def getLength(s: Seq[FaultyComponent]): Int = s
     .foldLeft(0) { case (lenC, f) => lenC + f.injector.getWidth }
@@ -73,10 +76,15 @@ object Main extends App {
       .action( (_, c) => c.copy(verbose = true) )
       .text("Enable verbose output")
     opt[Double]('p', "probability")
-      .action( (x, c) => c.copy(probability = Some(x) ))
+      .action( (x, c) => c.copy(probability = Some(x)) )
       .validate( x => if (x >= 0 && x <= 1) success
                 else failure("probability <value> must be on domain [0, 1]") )
       .text("Default bit flip probability")
+    opt[Int]('s', "seed")
+      .action( (x, c) => c.copy(seed = Some(x)) )
+      .validate( x => if (x >= 0) success
+                else failure("the seed <value> must be greater than or equal to 0") )
+      .text("Randome number seed")
     arg[File]("scan.yaml")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
@@ -86,6 +94,7 @@ object Main extends App {
   parser.parse(args, Arguments()) match {
     case Some(x) =>
       implicit val opt = x
+      val util = new ScanChainUtils
       val chains = Source.fromFile(opt.scanChainFileName)
         .mkString
         .parseYaml
@@ -94,15 +103,15 @@ object Main extends App {
       if (opt.verbose) {
         chains.foreach{ case (name, c) =>
           println(
-            s"  [info] Found scan chain '$name' of length ${ScanChainUtils.getLength(c)}b")
+            s"  [info] Found scan chain '$name' of length ${util.getLength(c)}b")
           println(
-            ScanChainUtils.getComponentNames(c).foreach{ n =>
+            util.getComponentNames(c).foreach{ n =>
               println(s"  [info]   - $n") })
         }
       }
 
-      ScanChainUtils.bind(chains)
-      println(ScanChainUtils.toString(chains))
+      util.bind(chains)
+      println(util.toString(chains))
     case None =>
   }
 }
