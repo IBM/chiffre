@@ -9,24 +9,59 @@ import leChiffre.scan._
 import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
 
+case class ScanChainException(msg: String) extends Exception(msg)
+
 case class Arguments(
   scanChainFileName: File = new File("."),
-  verbose: Boolean = false
+  verbose: Boolean = false,
+  probability: Option[Double] = None
 )
 
 object ScanChainUtils {
+  lazy val rand = new scala.util.Random()
+
   def getLength(s: Seq[FaultyComponent]): Int = s
-    .foldLeft(0) { case (lenC, f) => lenC +
-      (f.injector match {
-         case LfsrInjectorInfo(width, lfsrWidth) => width * lfsrWidth
-         case CycleInjectorInfo(width, cycleWidth) => width + cycleWidth
-         case StuckAtInjectorInfo(width) => width
-         case _ => 0
-       })
-    }
+    .foldLeft(0) { case (lenC, f) => lenC + f.injector.getWidth }
 
   def getComponentNames(s: Seq[FaultyComponent]): Seq[String] = s
     .map(_.name)
+
+  def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField =
+    f match {
+      case x: Seed => x.copy(value = Some(BigInt(x.width, rand)))
+      case x: Difficulty => x
+          .copy(probability =
+                  Some(opt.probability.getOrElse(
+                         throw new Exception(
+                           s"Unable to determine ScanField value for $f from arguments" )
+                       )))
+      case _ => throw new Exception(s"Unimplemented binding for ScanField $f")
+    }
+
+  def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): InjectorInfo = {
+    i.fields = i.fields.map(bind(_, name))
+    i
+  }
+
+  def bind(f: FaultyComponent)(implicit opt: Arguments): FaultyComponent = {
+    f.copy(injector = bind(f.injector, f.name))
+  }
+
+  def bind(s: ScanChain)(implicit opt: Arguments): ScanChain = {
+    s.map {
+      case (name, chain) => { chain.map { bind(_) } }
+        (name, chain)
+    }
+  }
+
+  def toString(chain: ScanChain, indent: String = ""): String = {
+    chain
+      .map{case(k, v) =>
+        s"""|${indent}${k}:
+            |${v.map(_.serialize(indent + "  ")).mkString("\n")}"""
+          .stripMargin}
+      .mkString("\n")
+  }
 }
 
 object Main extends App {
@@ -36,26 +71,37 @@ object Main extends App {
     opt[Unit]("verbose")
       .action( (_, c) => c.copy(verbose = true) )
       .text("Enable verbose output")
+    opt[Double]('p', "probability")
+      .action( (x, c) => c.copy(probability = Some(x) ))
+      .validate( x => if (x >= 0 && x <= 1) success
+                else failure("probability <value> must be on domain [0, 1]") )
+      .text("Default bit flip probability")
     arg[File]("scan.yaml")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
       .text("A YAML description of the scan chain")
   }
 
-  val Some(opt) = parser.parse(args, Arguments())
+  parser.parse(args, Arguments()) match {
+    case Some(x) =>
+      implicit val opt = x
+      val chains = Source.fromFile(opt.scanChainFileName)
+        .mkString
+        .parseYaml
+        .convertTo[ScanChain]
 
-  val chains = Source.fromFile(opt.scanChainFileName)
-    .mkString
-    .parseYaml
-    .convertTo[ScanChain]
+      if (opt.verbose) {
+        chains.foreach{ case (name, c) =>
+          println(
+            s"  [info] Found scan chain '$name' of length ${ScanChainUtils.getLength(c)}b")
+          println(
+            ScanChainUtils.getComponentNames(c).foreach{ n =>
+              println(s"  [info]   - $n") })
+        }
+      }
 
-  if (opt.verbose) {
-    chains.foreach{ case (k, v) =>
-      println(
-        s"  [info] Found scan chain '$k' of length ${ScanChainUtils.getLength(v)}b")
-      println(
-        ScanChainUtils.getComponentNames(v).foreach{ n =>
-          println(s"  [info]   - $n") })
-    }
+      ScanChainUtils.bind(chains)
+      println(ScanChainUtils.toString(chains))
+    case None =>
   }
 }

@@ -3,25 +3,82 @@
 package leChiffre
 
 package object scan {
-  sealed trait InjectorInfo {
-    val tpe: String
-    val width: Int
+  /* A configurable region of the scan chain */
+  sealed trait ScanField {
+    def name = this.getClass.getSimpleName
+
+    def width: Int
+
+    def value: Option[BigInt]
+
+    def toBits(): String = s"%${width}s"
+      .format(value.getOrElse(BigInt(0)).toString(2))
+      .replace(' ', '0')
+
+    def serialize(indent: String = ""): String = {
+      s"""|${indent}name: $name
+          |${indent}  width: $width
+          |${indent}  value: ${toBits}"""
+        .stripMargin
+    }
   }
 
+  case class Cycle(width: Int, value: Option[BigInt] = None) extends ScanField
+  case class Mask(width: Int, value : Option[BigInt] = None) extends ScanField
+  case class Difficulty(width: Int, probability: Option[Double] = None)
+      extends ScanField {
+    val value = if (probability.isEmpty) None
+    else Some(
+      BigDecimal((math.pow(2, width) - 1) * probability.getOrElse(0.0)).toBigInt)
+  }
+  case class Seed(width: Int, value: Option[BigInt] = None) extends ScanField
+
+  sealed abstract class InjectorInfo {
+    def tpe: String
+    def width: Int
+
+    /* All configurable fields for this specific injector */
+    var fields: Seq[ScanField] = Seq()
+
+    /* The width of this injector's scan chain configuration */
+    def getWidth(): Int = fields.foldLeft(0)( (l, r) => l + r.width )
+
+    /* Prety print */
+    def serialize(indent: String = ""): String = {
+      s"""|${indent}type: $tpe
+          |${indent}width: $width
+          |${fields.map(a => s"${a.serialize(indent + "  ")}").mkString("\n")}"""
+        .stripMargin
+    }
+  }
+
+  /* [todo] You need to rethink this. There needs to be some way of
+   * doing a copy of this to update the fields. Assumedly the fields
+   * should then be part of the actual case class and not a val
+   * inside. */
   case class LfsrInjectorInfo(width: Int, lfsrWidth: Int) extends InjectorInfo {
     val tpe = s"lfsr$lfsrWidth"
+    fields = Seq.fill(width)(Seq(Difficulty(lfsrWidth), Seed(lfsrWidth)))
+      .flatten
   }
 
   case class CycleInjectorInfo(width: Int, cycleWidth: Int) extends InjectorInfo {
     val tpe = s"cycle$cycleWidth"
+    fields = Seq(Cycle(cycleWidth), Mask(width))
   }
 
   case class StuckAtInjectorInfo(width: Int) extends InjectorInfo {
     val tpe = "stuckAt"
+    fields = Seq(Mask(width))
   }
 
   /* The name of a signal and it's associated fault injector */
-  case class FaultyComponent(name: String, injector: InjectorInfo)
+  case class FaultyComponent(name: String, injector: InjectorInfo) {
+    def serialize(indent: String): String =
+      s"""|${indent}$name:
+          |${injector.serialize(indent + "  ")}"""
+        .stripMargin
+  }
   type ScanChain = Map[String, Seq[FaultyComponent]]
 
   import net.jcazevedo.moultingyaml._
