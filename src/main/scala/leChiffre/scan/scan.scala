@@ -50,6 +50,8 @@ package object scan {
           |${fields.map(a => s"${a.serialize(indent + "  ")}").mkString("\n")}"""
         .stripMargin
     }
+
+    def toBits(): String = fields.map(_.toBits()).mkString
   }
 
   /* [todo] You need to rethink this. There needs to be some way of
@@ -78,6 +80,8 @@ package object scan {
       s"""|${indent}$name:
           |${injector.serialize(indent + "  ")}"""
         .stripMargin
+
+    def toBits(): String = injector.toBits()
   }
   type ScanChain = Map[String, Seq[FaultyComponent]]
 

@@ -58,7 +58,8 @@ object ScanChainUtils {
     chain
       .map{case(k, v) =>
         s"""|${indent}${k}:
-            |${v.map(_.serialize(indent + "  ")).mkString("\n")}"""
+            |${v.map(_.serialize(indent + "  ")).mkString("\n")}
+            |${indent}  raw: ${v.map(_.toBits()).mkString}"""
           .stripMargin}
       .mkString("\n")
   }
