@@ -22,6 +22,8 @@ sealed class InjectorIo(n: Int) extends Bundle {
 sealed abstract class InjectorLike(n: Int, id: String) extends Module
     with AddsScanState {
   val io = IO(new InjectorIo(n))
+  val enabled = Reg(init = false.B)
+  when (io.scan.en) { enabled := ~enabled }
 }
 
 /** An injector that does not add its bits to the scan chain. Extend
@@ -56,11 +58,12 @@ abstract class InjectorBitwise(n: Int, id: String, gen: => OneBitInjector)
     .zipWithIndex
     .map{ case (injector, i) =>
       injector.io.in := io.in(i)
-      injector.io.scan.en := io.scan.en
+
       injector.io.scan.clk := io.scan.clk
+      injector.io.scan.en := io.scan.en
       injector.io.scan.in := scanLast
       scanLast = injector.io.scan.out
     }
   io.scan.out := scanLast
-  io.out := Cat(injectors.map(_.io.out))
+  io.out := Cat(injectors.reverse.map(_.io.out))
 }

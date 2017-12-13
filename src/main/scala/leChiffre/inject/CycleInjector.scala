@@ -9,7 +9,6 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
   val cycleTarget = Reg(UInt(cycleWidth.W))
   val cycleCounter = Reg(UInt(cycleWidth.W))
   val flipMask = Reg(UInt(n.W))
-  val enabled = Reg(init = false.B)
 
   lazy val info = CycleInjectorInfo(n, cycleWidth)
 
@@ -23,6 +22,4 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
   }
 
   io.scan.out := flipMask(0)
-
-  when (io.scan.en) { enabled := true.B }
 }

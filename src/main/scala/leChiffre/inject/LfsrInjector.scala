@@ -6,7 +6,6 @@ import chisel3.util._
 import leChiffre.scan._
 
 class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
-  val enabled = Reg(init = false.B)
   val difficulty = Reg(init = 0.U(lfsrWidth.W))
   val seed = Reg(init = 1.U(lfsrWidth.W))
   lazy val info = LfsrInjectorInfo(1, lfsrWidth)
@@ -26,12 +25,19 @@ class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
 
   io.scan.out := difficulty(0)
 
-  when (io.scan.en) {
-    enabled := true.B
+  when (fire) {
+    printf(s"[info] $name fire\n")
+  }
+
+  when (io.scan.en && !enabled) {
     printf(s"""|[info] $name enabled
                |[info]   - seed: 0x%x
                |[info]   - difficulty: 0x%x
                |""".stripMargin, seed, difficulty)
+  }
+
+  when (io.scan.en && enabled) {
+    printf(s"[info] $name disabled\n")
   }
 }
 

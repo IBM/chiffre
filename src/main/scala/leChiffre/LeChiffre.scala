@@ -27,10 +27,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val do_echo             = io.cmd.fire() & funct === f_ECHO.U
   val do_cycle            = io.cmd.fire() & funct === f_CYCLE.U
   val do_enable           = io.cmd.fire() & funct === f_ENABLE.U
-  val do_write_difficulty = io.cmd.fire() & funct === f_FAULT_DIFFICULTY.U
-  val do_write_duration   = io.cmd.fire() & funct === f_FAULT_DURATION.U
-  val do_write_seed       = io.cmd.fire() & funct === f_WRITE_SEED.U
-  val do_unknown          = io.cmd.fire() & funct  >  f_WRITE_SEED.U
+  val do_unknown          = io.cmd.fire() & funct  >  f_ENABLE.U
 
   val s_ = Chisel.Enum(UInt(), List('WAIT,
     'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
@@ -46,25 +43,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val rs2_d = Reg(UInt())
   val resp_d = Reg(UInt())
 
-  val reg_difficulty = Reg(UInt(32.W)) // [#2] config parameter
-  val reg_fault_duration = Reg(UInt(64.W)) // [#2] config parameter
-  val reg_enabled = Reg(init = false.B)
-
-  val lfsr = Module(new Lfsr(reg_difficulty.getWidth))
   val fletcher = Module(new Fletcher(checksum.getWidth))
-
-  val emergency = Reg(init = false.B)
-  val count = Reg(init = 0.U(reg_fault_duration.getWidth.W))
-
-  scan.en := false.B
-  when (emergency)                    { count      := count + 1.U }
-  when (count === reg_fault_duration) { emergency  := false.B
-                                        scan.en := true.B      }
-  when (reg_enabled && (lfsr.io.y < reg_difficulty)) {
-    emergency := true.B
-    count := 0.U
-    scan.en := !emergency
-  }
 
   io.cmd.ready := state === s_('WAIT)
 
@@ -88,27 +67,8 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     printfInfo("Cycling: addr 0x%x\n", io.cmd.bits.rs1)
   }
 
+  scan.en := do_enable
   when (do_enable) {
-    state := s_('RESP)
-    resp_d := 0.U
-    reg_enabled := ~reg_enabled
-  }
-
-  when (do_write_difficulty) {
-    state := s_('RESP)
-    resp_d := reg_difficulty
-    reg_difficulty := io.cmd.bits.rs2
-  }
-
-  when (do_write_duration) {
-    state := s_('RESP)
-    resp_d := reg_fault_duration
-    reg_fault_duration := io.cmd.bits.rs2
-  }
-
-  lfsr.io.seed.valid := do_write_seed
-  lfsr.io.seed.bits := io.cmd.bits.rs2
-  when (do_write_seed) {
     state := s_('RESP)
     resp_d := 0.U
   }
@@ -234,8 +194,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
       gnt.bits.data, gnt.bits.addr_beat) }
 
   when (scan.clk) {
-    printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, scan.out,
-      scan.en)
+    printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, scan.out, scan.en)
   }
 
   // Catch all error states

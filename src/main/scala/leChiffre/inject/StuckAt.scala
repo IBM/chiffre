@@ -8,7 +8,6 @@ import leChiffre.scan._
 class StuckAt(n: Int, id: String) extends Injector(n, id) {
   val mask = Reg(UInt(n.W))
   val value = Reg(UInt(n.W))
-  val enabled = Reg(init = false.B)
 
   lazy val info = StuckAtInjectorInfo(n)
 
@@ -22,6 +21,4 @@ class StuckAt(n: Int, id: String) extends Injector(n, id) {
   }
 
   io.scan.out := value(0)
-
-  when (io.scan.en) { enabled := true.B }
 }
