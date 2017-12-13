@@ -26,7 +26,13 @@ class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
 
   io.scan.out := difficulty(0)
 
-  when (io.scan.en) { enabled := true.B }
+  when (io.scan.en) {
+    enabled := true.B
+    printf(s"""|[info] $name enabled
+               |[info]   - seed: 0x%x
+               |[info]   - difficulty: 0x%x
+               |""".stripMargin, seed, difficulty)
+  }
 }
 
 class LfsrInjector32(n: Int, id: String)

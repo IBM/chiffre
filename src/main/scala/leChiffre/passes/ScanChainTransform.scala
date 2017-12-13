@@ -134,7 +134,7 @@ class ScanChainTransform extends Transform {
 
       // [todo] Set the emitted directory and file name (via another
       // annotation?)
-      val scanFile = "generated-src/scan-chain.yaml"
+      val scanFile = "scan-chain.yaml"
       val w = new FileWriter(scanFile)
       val sc = s.map{ case(k, v) => v.toScanChain(k) }
         .reduce(_ ++ _)

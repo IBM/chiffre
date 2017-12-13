@@ -172,9 +172,13 @@ class FaultInstrumentation(
                 DefWire(NoInfo, rename, t)
               ),
               connects = x.connects ++ Seq(
-                Connect(NoInfo,toExp(s"$defi.io.in"),
+                Connect(NoInfo, toExp(s"$defi.clock"),
+                        toExp(s"clock")),
+                Connect(NoInfo, toExp(s"$defi.reset"),
+                        toExp(s"reset")),
+                Connect(NoInfo, toExp(s"$defi.io.in"),
                         castRhs(tx, comp.expr)),
-                Connect(NoInfo,toExp(rename),
+                Connect(NoInfo, toExp(rename),
                         castRhs(t, toExp(s"$defi.io.out"))),
                 conn
               ),

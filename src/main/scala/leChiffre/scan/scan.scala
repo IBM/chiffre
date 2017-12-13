@@ -60,7 +60,7 @@ package object scan {
    * inside. */
   case class LfsrInjectorInfo(width: Int, lfsrWidth: Int) extends InjectorInfo {
     val tpe = s"lfsr$lfsrWidth"
-    fields = Seq.fill(width)(Seq(Difficulty(lfsrWidth), Seed(lfsrWidth)))
+    fields = Seq.fill(width)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth)))
       .flatten
   }
 
