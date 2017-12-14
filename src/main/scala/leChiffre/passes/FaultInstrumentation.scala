@@ -268,8 +268,10 @@ class FaultInstrumentation(
 
   private def onStmt(renames: Map[String, String])(s: Statement): Statement = {
     s mapStmt onStmt(renames) match {
-      case Connect(i, l, e) => Connect(i, l, e mapExpr replace(renames))
-      case PartialConnect(i, l, e) => PartialConnect(i, l, e mapExpr replace(renames))
+      case Connect(i, l, e) =>
+        Connect(i, l, replace(renames)(e))
+      case PartialConnect(i, l, e) =>
+        PartialConnect(i, l, replace(renames)(e))
       case s => s mapExpr replace(renames)
     }
   }
@@ -277,6 +279,10 @@ class FaultInstrumentation(
   private def replace(renames: Map[String, String])(e: Expression): Expression = {
     e match {
       case ex: WRef => ex.name match {
+        case name if renames.contains(name) => ex.copy(name=renames(name))
+        case _ => ex
+      }
+      case ex: Reference => ex.name match {
         case name if renames.contains(name) => ex.copy(name=renames(name))
         case _ => ex
       }
