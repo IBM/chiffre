@@ -4,9 +4,6 @@
 [submodule "util/hdl-tools"]
 	path = util/hdl-tools
 	url = https://github.com/ibm/hdl-tools
-[submodule "util/fault-injection"]
-	path = util/instrumentation
-	url = ../fault-injection
 [submodule "tests/rocc-software"]
 	path = tests/rocc-software
 	url = https://github.com/ibm/rocc-software
