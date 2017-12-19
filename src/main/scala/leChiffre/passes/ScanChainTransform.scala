@@ -16,6 +16,7 @@ package leChiffre.passes
 import firrtl._
 import firrtl.passes._
 import firrtl.annotations._
+import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
 import java.io.FileWriter
 import leChiffre.scan._
@@ -57,12 +58,16 @@ case class ScanChainInfo(
 }
 
 object ScanChainAnnotation {
-  def apply(comp: ComponentName, ctrl: String, dir: String, id: String): Annotation =
-    Annotation(comp, classOf[ScanChainTransform], s"$ctrl:$dir:$id")
-  val matcher = raw"(master|slave):(\w+):(\w+)".r
-  def unapply(a: Annotation): Option[(ComponentName, String, String, String)] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id)) =>
-      Some(ComponentName(n, m), ctrl, dir, id)
+  def apply(comp: ComponentName, ctrl: String, dir: String, id: String,
+            key: Option[Named]): Annotation =
+    Annotation(comp, classOf[ScanChainTransform],
+               s"""$ctrl:$dir:$id:${if (key.isEmpty) "" else key.get.serialize}""")
+  val matcher = raw"(master|slave):(\w+):(\w+):(\w+)?".r
+  def unapply(a: Annotation): Option[(ComponentName, String, String, String,
+                                      Option[Named])] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id, key)) =>
+      val k = if (key == null) None else Some(toNamed(key))
+      Some((ComponentName(n, m), ctrl, dir, id, k))
     case _ => None
   }
 }
@@ -105,14 +110,14 @@ class ScanChainTransform extends Transform {
     case p =>
       val s = mutable.HashMap[String, ScanChainInfo]()
       p.foreach {
-        case ScanChainAnnotation(comp, ctrl, dir, id) => (ctrl, dir) match {
+        case ScanChainAnnotation(comp, ctrl, dir, id, key) => (ctrl, dir) match {
           case ("master", "in") => s(id) = ScanChainInfo(masterIn = comp)
           case _ =>
         }
         case _ =>
       }
       p.foreach {
-        case ScanChainAnnotation(comp, ctrl, dir, id) => s(id) = (ctrl, dir) match {
+        case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
           case ("master", "out") => s(id).copy(masterOut = Some(comp))
           case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn :+ comp)
           case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++ Map(comp.module.name -> comp))

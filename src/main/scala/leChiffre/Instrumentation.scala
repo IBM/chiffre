@@ -42,12 +42,12 @@ trait ChiffreController {
       ChiselAnnotation(
         in,
         classOf[leChiffre.passes.ScanChainTransform],
-        s"master:in:$name"))
+        s"master:in:$name:"))
     annotate(
       ChiselAnnotation(
         out,
         classOf[leChiffre.passes.ScanChainTransform],
-        s"master:out:$name"))
+        s"master:out:$name:"))
   }
 
   val scan = Wire(new ScanIo)

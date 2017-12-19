@@ -168,51 +168,31 @@ class FaultInstrumentation(
             val defi = moduleNamespace.newName(subcircuit.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
 
-            scanIn = Some(s"$defi.io.scan.in")
-            scanOut = s"$defi.io.scan.out"
+            val Seq(scanEn, scanClk, scanIn, scanOut) =
+              Seq("en", "clk", "in", "out").map( s =>
+                ComponentName(s"$defi.io.scan.$s",
+                              ModuleName(m.name, CircuitName(c.main))) )
+
+            val wt = classOf[firrtl.passes.wiring.WiringTransform]
+            val st = classOf[leChiffre.passes.ScanChainTransform]
 
             val x = mods(m.name)
             mods(m.name) = x.copy(
-              defines = Seq(
-                DefInstance(NoInfo, defi, subcircuit.main)
-              ) ++ x.defines ++ Seq(
-                DefWire(NoInfo, rename, t)
-              ),
+              defines = DefInstance(NoInfo, defi, subcircuit.main) +:
+                x.defines :+ DefWire(NoInfo, rename, t),
               connects = x.connects ++ Seq(
-                Connect(NoInfo, toExp(s"$defi.clock"),
-                        toExp(s"clock")),
-                Connect(NoInfo, toExp(s"$defi.reset"),
-                        toExp(s"reset")),
-                Connect(NoInfo, toExp(s"$defi.io.in"),
-                        castRhs(tx, comp.expr)),
-                Connect(NoInfo, toExp(rename),
-                        castRhs(t, toExp(s"$defi.io.out")))
+                Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
+                Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
+                Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
+                Connect(NoInfo, toExp(rename), castRhs(t, toExp(s"$defi.io.out")))
               ),
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
-                Annotation(ComponentName(s"$defi.io.scan.en",
-                                         ModuleName(m.name,
-                                                    CircuitName(c.main))),
-                           classOf[firrtl.passes.wiring.WiringTransform],
-                           "sink scan_en"),
-                Annotation(ComponentName(s"$defi.io.scan.clk",
-                                         ModuleName(m.name,
-                                                    CircuitName(c.main))),
-                           classOf[firrtl.passes.wiring.WiringTransform],
-                           "sink scan_clk"),
-                Annotation(comp,
-                           classOf[leChiffre.passes.ScanChainTransform],
-                           s"injector:$id:$defi:${subcircuit.main}"),
-                Annotation(ComponentName(scanIn.get,
-                                         ModuleName(m.name,
-                                                    CircuitName(c.main))),
-                           classOf[leChiffre.passes.ScanChainTransform],
-                           s"slave:in:main"),
-                Annotation(ComponentName(scanOut,
-                                         ModuleName(m.name,
-                                                    CircuitName(c.main))),
-                           classOf[leChiffre.passes.ScanChainTransform],
-                           s"slave:out:main")
+                Annotation(scanEn, wt, "sink scan_en"),
+                Annotation(scanClk, wt, "sink scan_clk"),
+                Annotation(comp, st, s"injector:$id:$defi:${subcircuit.main}"),
+                Annotation(scanIn, st, s"slave:in:$id:${comp.serialize}"),
+                Annotation(scanOut, st, s"slave:out:$id:${comp.serialize}")
               ),
               renames = x.renames ++ Map(comp.name -> rename)
             )
