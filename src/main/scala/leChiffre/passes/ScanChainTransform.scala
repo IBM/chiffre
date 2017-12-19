@@ -28,45 +28,47 @@ case class ScanChainException(msg: String) extends PassException(msg)
 case class ScanChainInfo(
   masterIn: ComponentName,
   masterOut: Option[ComponentName] = None,
-  slaveIn: Seq[ComponentName] = Seq.empty,
-  slaveOut: Map[String, ComponentName] = Map.empty,
+  /* Everything here is keyed by the injector component */
+  slaveIn: Map[ComponentName, ComponentName] = Map.empty,
+  slaveOut: Map[ComponentName, ComponentName] = Map.empty,
   injectors: Map[ComponentName, ModuleName] = Map.empty,
+  /* This is keyed by the injector module name */
   description: Map[ModuleName, InjectorInfo] = Map.empty) {
   def serialize(tab: String): String =
-    s"""|$tab master:
-        |$tab   in: ${masterIn.name}
-        |$tab   out: ${masterOut.getOrElse("none")}
-        |$tab slaves:
-        |${slaveIn.map( x=> s"$tab  ${x.module.name}\n$tab    ${x.name}: ${slaveOut(x.module.name).name}").mkString("\n")}
-        |$tab injectors:
-        |${injectors.map{case (k,v)=>s"$tab  ${k.module.name + "." + k.name}: ${v.name}"}.mkString("\n")}
-        |$tab description:
-        |${description.map{case(k,v)=>s"$tab  ${k.name}: $v"}.mkString("\n")}"""
+    s"""|${tab}master:
+        |${tab}  in: ${masterIn.name}
+        |${tab}  out: ${masterOut.getOrElse("none")}
+        |${tab}slaves:
+        |${injectors.map{ case (k, v) => s"${tab}  ${v.name}, ${k.module.name}, ${slaveIn(k).module.name}.${slaveIn(k).name}, ${slaveOut(k).module.name}.${slaveOut(k).name}"}.mkString("\n")}
+        |${tab}description:
+        |${description.map{case(k,v)=>s"${tab}  ${k.name}: $v"}.mkString("\n")}"""
       .stripMargin
 
   def toScanChain(name: String): ScanChain = {
-    val components: Seq[FaultyComponent] = slaveIn.flatMap{ s =>
-      injectors
-        .filter{ case (ComponentName(_, m), _) => m == s.module }
-        .map{ case (f, mm) =>
-          val id = s"${f.module.circuit.name}.${f.module.name}.${f.name}"
-          FaultyComponent(id, description(mm))
-        }
-    }
+    val components: Seq[FaultyComponent] = injectors.map{ case(c, m) =>
+      val id = s"${c.module.circuit.name}.${c.module.name}.${c.name}"
+      FaultyComponent(id, description(m))
+    }.toSeq
     Map(name -> components)
   }
 }
 
 object ScanChainAnnotation {
   def apply(comp: ComponentName, ctrl: String, dir: String, id: String,
-            key: Option[Named]): Annotation =
+            key: Option[ComponentName]): Annotation =
     Annotation(comp, classOf[ScanChainTransform],
                s"""$ctrl:$dir:$id:${if (key.isEmpty) "" else key.get.serialize}""")
-  val matcher = raw"(master|slave):(\w+):(\w+):(\w+)?".r
+  val matcher = raw"(master|slave):(.+):(.+):((.+?)\.(.+?)\.(.+?))?$$".r
   def unapply(a: Annotation): Option[(ComponentName, String, String, String,
-                                      Option[Named])] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id, key)) =>
-      val k = if (key == null) None else Some(toNamed(key))
+                                      Option[ComponentName])] = a match {
+    case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id, key, a,b,c)) =>
+      println(key)
+      val k =
+        if (key == null) None
+        else ComponentName(c, ModuleName(b, CircuitName(a))) match {
+          case x: ComponentName => Some(x)
+          case _ => None
+      }
       Some((ComponentName(n, m), ctrl, dir, id, k))
     case _ => None
   }
@@ -119,8 +121,10 @@ class ScanChainTransform extends Transform {
       p.foreach {
         case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
           case ("master", "out") => s(id).copy(masterOut = Some(comp))
-          case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn :+ comp)
-          case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++ Map(comp.module.name -> comp))
+          case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn ++
+                                               Map(key.get -> comp))
+          case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++
+                                                Map(key.get -> comp))
           case _ => s(id)
         }
         case ScanChainInjector(comp, id, inst, mod) => s(id) = s(id)
@@ -138,10 +142,11 @@ class ScanChainTransform extends Transform {
         case _ =>
       }
 
-      s.map{ case (k, v) =>logger.info(
-              s"""|[info] scan chain:
-                  |[info]   name: ${k}
-                  |${v.serialize("[info]   ")}""".stripMargin) }
+      s.foreach{ case (k, v) => println(k, v) }
+      s.foreach{ case (k, v) => logger.info(
+                  s"""|[info] scan chain:
+                      |[info]   name: ${k}
+                      |${v.serialize("[info]   ")}""".stripMargin) }
 
       // [todo] Order the scan chain to minimize distance. Roughly,
       // this should start from each source ("scan out") and connect
@@ -165,9 +170,12 @@ class ScanChainTransform extends Transform {
       w.close()
 
       val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
-        val chain = (v.masterOut.get +:
-                       v.slaveIn.flatMap(l => Seq(l, v.slaveOut(l.module.name))) :+
-                       v.masterIn)
+        // [todo] This is not deterministic
+        val chain: Seq[ComponentName] =
+          (  v.masterOut.get +:
+             v.injectors
+             .flatMap{ case (k, _) => Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+
+             v.masterIn  )
 
         val annotations = chain
           .grouped(2).zipWithIndex
