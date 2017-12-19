@@ -17,7 +17,6 @@
 #include "tests/rocc-software/src/xcustom.h"
 #include "tests/rocc-software/src/riscv_test_rocc.h"
 #include "tests/include/le-chiffre.h"
-#include "tests/smoke/faulty-cycle.h"
 
 #undef EXTRA_INIT
 #define EXTRA_INIT \
@@ -28,11 +27,9 @@ RVTEST_WITH_ROCC
 
 RVTEST_CODE_BEGIN
 
-// Inject 0xdeadbeef into the cycle counter, ensure that we read that
-TEST_CASE( 1, x3, 0, LE_CHIFFRE_CYCLE(config_cycle, 3) );
-TEST_CASE( 2, x10, 0, LE_CHIFFRE_ENABLE(10) );
-TEST_CASE( 3, x10, 0xdeadbeef, csrr x10, cycle;)
-TEST_CASE( 4, x10, 0, LE_CHIFFRE_ENABLE(10) );
+jail:
+
+TEST_CASE( 1, x0, 0, nop)
 
 TEST_PASSFAIL
 
@@ -40,14 +37,5 @@ RVTEST_CODE_END
 
   .data
 RVTEST_DATA_BEGIN
-
-config_instret:
-reg_instret_LfsrInjector32
-
-config_cycle:
-reg_cycle_stuckAt
-
-config_fflags:
-reg_fflags_CycleInjector32
 
 RVTEST_DATA_END

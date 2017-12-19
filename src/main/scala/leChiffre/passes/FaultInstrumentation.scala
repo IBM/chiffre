@@ -168,13 +168,8 @@ class FaultInstrumentation(
             val defi = moduleNamespace.newName(subcircuit.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
 
-            val conn = if (scanIn.isEmpty) {
-              scanIn = Some(s"$defi.io.scan.in")
-              EmptyStmt
-            } else {
-              Connect(NoInfo,toExp(scanIn.get),
-                      toExp(s"$defi.io.scan.out"))
-            }
+            scanIn = Some(s"$defi.io.scan.in")
+            scanOut = s"$defi.io.scan.out"
 
             val x = mods(m.name)
             mods(m.name) = x.copy(
@@ -191,8 +186,7 @@ class FaultInstrumentation(
                 Connect(NoInfo, toExp(s"$defi.io.in"),
                         castRhs(tx, comp.expr)),
                 Connect(NoInfo, toExp(rename),
-                        castRhs(t, toExp(s"$defi.io.out"))),
-                conn
+                        castRhs(t, toExp(s"$defi.io.out")))
               ),
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
@@ -208,29 +202,21 @@ class FaultInstrumentation(
                            "sink scan_clk"),
                 Annotation(comp,
                            classOf[leChiffre.passes.ScanChainTransform],
-                           s"injector:$id:$defi:${subcircuit.main}")),
+                           s"injector:$id:$defi:${subcircuit.main}"),
+                Annotation(ComponentName(scanIn.get,
+                                         ModuleName(m.name,
+                                                    CircuitName(c.main))),
+                           classOf[leChiffre.passes.ScanChainTransform],
+                           s"slave:in:main"),
+                Annotation(ComponentName(scanOut,
+                                         ModuleName(m.name,
+                                                    CircuitName(c.main))),
+                           classOf[leChiffre.passes.ScanChainTransform],
+                           s"slave:out:main")
+              ),
               renames = x.renames ++ Map(comp.name -> rename)
             )
-            scanOut = s"$defi.io.scan.out"
           }
-
-          // [todo] How should the scan chain ID be used here? (It
-          // shouldn't always be "main")
-          val x = mods(m.name)
-          mods(m.name) = x.copy(
-            annotations = x.annotations ++ Seq(
-              Annotation(ComponentName(scanIn.get,
-                                       ModuleName(m.name,
-                                                  CircuitName(c.main))),
-                         classOf[leChiffre.passes.ScanChainTransform],
-                         s"slave:in:main"),
-              Annotation(ComponentName(scanOut,
-                                       ModuleName(m.name,
-                                                  CircuitName(c.main))),
-                         classOf[leChiffre.passes.ScanChainTransform],
-                         s"slave:out:main")
-            )
-          )
         case m: ExtModule =>
           throw new FaultInstrumentationException("Tried to instrument an ExtModule")
       }

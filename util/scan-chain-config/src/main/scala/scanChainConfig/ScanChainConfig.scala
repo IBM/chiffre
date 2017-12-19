@@ -17,7 +17,11 @@ case class Arguments(
   scanChainDir: Option[File] = None,
   verbose: Boolean = false,
   probability: Option[Double] = None,
-  seed: Option[Int] = None
+  seed: Option[Int] = None,
+  mask: Option[BigInt] = None,
+  stuckAt: Option[BigInt] = None,
+  cycle: Option[BigInt] = None,
+  cycleInject: Option[BigInt] = None
 )
 
 class ScanChainUtils(implicit opt: Arguments) {
@@ -33,16 +37,36 @@ class ScanChainUtils(implicit opt: Arguments) {
 
   private def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField =
     f match {
-      case x: ScanField if x.value.nonEmpty => throw new Exception(
+      case x: ScanField if x.value.nonEmpty => throw new ScanChainException(
         s"Tried to rebind already bound ScanField $f (name: $name)")
       case x: Seed => x.copy(value = Some(BigInt(x.width, rand)))
       case x: Difficulty => x
           .copy(probability =
                   Some(opt.probability.getOrElse(
-                         throw new Exception(
+                         throw new ScanChainException(
                            s"Unable to determine ScanField value for $f from arguments" )
                        )))
-      case _ => throw new Exception(s"Unimplemented binding for ScanField $f")
+      case x: Mask => x
+          .copy(value =
+                  Some(opt.mask.getOrElse(
+                         throw new ScanChainException(
+                           s"Unable to bind mask for $f from arguments"))) )
+      case x: StuckAt => x
+          .copy(value =
+                  Some(opt.stuckAt.getOrElse(
+                         throw new ScanChainException(
+                           s"Unable to bind value for $f from arguments"))) )
+      case x: Cycle => x
+          .copy(value =
+                  Some(opt.cycle.getOrElse(
+                         throw new ScanChainException(
+                           s"Unable to bind value for $f from arguments"))) )
+      case x: CycleInject => x
+          .copy(value =
+                  Some(opt.cycleInject.getOrElse(
+                         throw new ScanChainException(
+                           s"Unable to bind value for $f from arguments"))) )
+      case _ => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
     }
 
   private def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): Unit =
@@ -72,13 +96,15 @@ class ScanChainUtils(implicit opt: Arguments) {
       .mkString("\n")
   }
 
-  def fletcher(x: String, n: Int = 32): BigInt = {
+  def fletcher(x: String, length: Int, n: Int = 32): BigInt = {
     var a: BigInt = 0
     var b: BigInt = 0
-    x.grouped(16).toList.reverse.foreach { xx =>
+    val toDrop = (x.size - length) / (n/2)
+    x.grouped(n/2).toList.reverse.dropRight(toDrop).foreach { xx =>
       val word = BigInt(xx, 2)
       a = (a + word) % (1 << n/2)
       b = (a + b) % (1 << n/2)
+      println(f"  [info] fletcher: a => 0x$a%x, b => 0x$b%x, from: 0b$xx")
     }
     (b << n/2) + a
   }
@@ -92,13 +118,14 @@ class ScanChainUtils(implicit opt: Arguments) {
     val pad = Seq.fill(((-length - 31) % 32) + 31)('0').mkString
     val bits = (pad ++ bitString(chain)).mkString
     println(s"  [info]   pad: $bits")
-    val checksum = fletcher(bits, 32)
+    val checksum = fletcher(bits, length, n=32)
     println(s"  [info] checksum: $checksum (0b${padding(checksum, 32)})")
     println(s"  [info] length: $length (0b${padding(length, 32)})")
     val raw = bits ++ padding(checksum, 32) ++ padding(length, 32)
     println(s"""  [info] raw: ${raw.grouped(8).mkString(" ")}""")
     println(s"""  [info] raw: ${raw.grouped(4).toList.map(BigInt(_, 2).toString(16)).mkString.grouped(16).mkString(" ")}""")
     println(s"  [info] bytes: ${raw.grouped(8).toArray.map(BigInt(_, 2).toByte).mkString(" ")}")
+    require(raw.size % 32 == 0)
     raw.grouped(8).toArray.reverse.map(BigInt(_, 2).toByte)
   }
 }
@@ -112,7 +139,7 @@ object Main extends App {
       .text("Enable verbose output")
     opt[File]('o', "output-dir")
       .action( (x, c) => c.copy(scanChainDir = Some(x)) )
-      .text("")
+      .text("Output directory for scan chain binaries")
     opt[Double]('p', "probability")
       .action( (x, c) => c.copy(probability = Some(x)) )
       .validate( x => if (x >= 0 && x <= 1) success
@@ -123,6 +150,20 @@ object Main extends App {
       .validate( x => if (x >= 0) success
                 else failure("the seed <value> must be greater than or equal to 0") )
       .text("Random number seed")
+    opt[String]("mask")
+      .action( (x, c) => c.copy(mask = Some(BigInt(x, 16))) )
+      .text("A fault mask (bits that will be given a 'stuck-at' value")
+    opt[String]("stuck-at")
+      .action( (x, c) => c.copy(stuckAt = Some(BigInt(x, 16))) )
+      .text("Stuck at bits to apply")
+    opt[BigInt]("cycle")
+      .action( (x, c) => c.copy(cycle = Some(x) ))
+      .validate( x => if (x >= 0) success
+                else failure("the cycle <value> must be greater than or equal to 0") )
+      .text("The cycle to inject faults")
+    opt[String]("cycle-inject")
+      .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) )
+      .text("Bit string to inject at <cycle>")
     arg[File]("scan.yaml")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )

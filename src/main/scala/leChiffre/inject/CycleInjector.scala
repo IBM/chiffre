@@ -35,3 +35,5 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
 
   io.scan.out := flipMask(0)
 }
+
+class CycleInjector32(n: Int, id: String) extends CycleInjector(n, 32, id)

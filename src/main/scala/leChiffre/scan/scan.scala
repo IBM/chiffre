@@ -35,7 +35,9 @@ package object scan {
   }
 
   case class Cycle(width: Int, value: Option[BigInt] = None) extends ScanField
-  case class Mask(width: Int, value : Option[BigInt] = None) extends ScanField
+  case class CycleInject(width: Int, value: Option[BigInt] = None) extends ScanField
+  case class Mask(width: Int, value: Option[BigInt] = None) extends ScanField
+  case class StuckAt(width: Int, value: Option[BigInt] = None) extends ScanField
   case class Difficulty(width: Int, probability: Option[Double] = None)
       extends ScanField {
     val value = if (probability.isEmpty) None
@@ -77,12 +79,12 @@ package object scan {
 
   case class CycleInjectorInfo(width: Int, cycleWidth: Int) extends InjectorInfo {
     val tpe = s"cycle$cycleWidth"
-    fields = Seq(Cycle(cycleWidth), Mask(width))
+    fields = Seq(Cycle(cycleWidth), CycleInject(width))
   }
 
   case class StuckAtInjectorInfo(width: Int) extends InjectorInfo {
     val tpe = "stuckAt"
-    fields = Seq(Mask(width))
+    fields = Seq(Mask(width), StuckAt(width))
   }
 
   /* The name of a signal and it's associated fault injector */

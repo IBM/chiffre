@@ -23,8 +23,8 @@ class StuckAt(n: Int, id: String) extends Injector(n, id) {
 
   lazy val info = StuckAtInjectorInfo(n)
 
-  io.out := enabled & (
-    (!mask & io.in) | ((mask & io.in) & value) | ((mask & !io.in) | value) )
+  val select = mask & Fill(mask.getWidth, enabled)
+  io.out := (io.in & ~select) | (value & select)
 
   when (io.scan.clk) {
     enabled := false.B
@@ -33,4 +33,15 @@ class StuckAt(n: Int, id: String) extends Injector(n, id) {
   }
 
   io.scan.out := value(0)
+
+  when (io.scan.en && !enabled) {
+    printf(s"""|[info] $name enabled
+               |[info]   - mask: 0x%x
+               |[info]   - value: 0x%x
+               |""".stripMargin, mask, value)
+  }
+
+  when (io.scan.en && enabled) {
+    printf(s"[info] $name disabled\n")
+  }
 }

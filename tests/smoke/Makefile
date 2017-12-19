@@ -6,7 +6,8 @@ src_dir = .
 tests = \
 	echo \
 	reg-wb-bomb \
-	faulty-cycle
+	faulty-cycle \
+	jailbreak
 
 tests_p = $(addprefix $(ROCC)-p-, $(tests))
 
