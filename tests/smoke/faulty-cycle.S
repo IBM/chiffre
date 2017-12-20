@@ -24,7 +24,11 @@
   csrw mscounteren, 7; \
   csrw mucounteren, 7;
 
-RVTEST_WITH_ROCC
+.macro init;
+RVTEST_XS_ENABLE
+li a0, MSTATUS_FS & (MSTATUS_FS >> 1)
+csrs mstatus, a0
+.endm
 
 RVTEST_CODE_BEGIN
 
@@ -33,6 +37,14 @@ TEST_CASE( 1, x3, 0, LE_CHIFFRE_CYCLE(config_cycle, 3) );
 TEST_CASE( 2, x10, 0, LE_CHIFFRE_ENABLE(10) );
 TEST_CASE( 3, x10, 0xdeadbeef, csrr x10, cycle;)
 TEST_CASE( 4, x10, 0, LE_CHIFFRE_ENABLE(10) );
+
+// Flip all the bits in the frm CSR
+TEST_CASE( 5, x3, 0, LE_CHIFFRE_CYCLE(config_frm, 3) );
+csrr x11, frm
+TEST_CASE( 6, x10, 0, LE_CHIFFRE_ENABLE(10) );
+csrr x10, frm
+TEST_CASE( 7, x10, 0x07, xor x10, x10, x11;)
+TEST_CASE( 8, x10, 0, LE_CHIFFRE_ENABLE(10) );
 
 TEST_PASSFAIL
 
@@ -47,7 +59,7 @@ reg_instret_LfsrInjector32
 config_cycle:
 reg_cycle_stuckAt
 
-config_fflags:
-reg_fflags_CycleInjector32
+config_frm:
+reg_frm_CycleInjector32
 
 RVTEST_DATA_END

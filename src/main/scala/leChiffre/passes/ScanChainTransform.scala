@@ -62,7 +62,6 @@ object ScanChainAnnotation {
   def unapply(a: Annotation): Option[(ComponentName, String, String, String,
                                       Option[ComponentName])] = a match {
     case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id, key, a,b,c)) =>
-      println(key)
       val k =
         if (key == null) None
         else ComponentName(c, ModuleName(b, CircuitName(a))) match {
@@ -134,7 +133,6 @@ class ScanChainTransform extends Transform {
       }
       p.foreach {
         case ScanChainDescription(mod, id, d) => {
-          println(s"[info] description is: $d")
           s(id) = s(id)
             .copy(description = s(id).description ++
                     Map(ModuleName(mod.name, CircuitName(state.circuit.main)) -> d))
@@ -142,7 +140,6 @@ class ScanChainTransform extends Transform {
         case _ =>
       }
 
-      s.foreach{ case (k, v) => println(k, v) }
       s.foreach{ case (k, v) => logger.info(
                   s"""|[info] scan chain:
                       |[info]   name: ${k}
@@ -164,7 +161,6 @@ class ScanChainTransform extends Transform {
       import ScanChainProtocol._
       import net.jcazevedo.moultingyaml._
 
-      println(sc)
       w.write(sc.toYaml.prettyPrint)
 
       w.close()

@@ -27,12 +27,16 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
   val fire = enabled & (cycleCounter === cycleTarget)
   io.out := Mux(fire, io.in ^ flipMask, io.in)
 
+  when (enabled) {
+    cycleCounter := cycleCounter + 1.U
+  }
+
   when (io.scan.clk) {
     enabled := false.B
+    cycleCounter := 0.U
     cycleTarget := io.scan.in ## (cycleTarget >> 1)
     flipMask := cycleTarget(0) ## (flipMask >> 1)
   }
-
   io.scan.out := flipMask(0)
 
   when (io.scan.en && !enabled) {
@@ -44,6 +48,10 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
 
   when (io.scan.en && enabled) {
     printf(s"[info] $name disabled\n")
+  }
+
+  when (fire) {
+    printf(s"[info] $name injecting!\n")
   }
 }
 

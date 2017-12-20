@@ -104,7 +104,6 @@ class ScanChainUtils(implicit opt: Arguments) {
       val word = BigInt(xx, 2)
       a = (a + word) % (1 << n/2)
       b = (a + b) % (1 << n/2)
-      println(f"  [info] fletcher: a => 0x$a%x, b => 0x$b%x, from: 0b$xx")
     }
     (b << n/2) + a
   }
