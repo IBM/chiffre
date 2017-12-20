@@ -10,7 +10,7 @@ class WithLeChiffre extends Config (
   (pname,site,here) => pname match {
     case BuildRoCC => Seq(
       RoccParameters(
-        opcodes = OpcodeSet.custom0,
+        opcodes = OpcodeSet.custom2,
         generator = (p: Parameters) =>  Module(new LeChiffre()(p)))
     )
     case RoccMaxTaggedMemXacts => 1

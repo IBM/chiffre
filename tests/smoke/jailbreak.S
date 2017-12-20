@@ -11,10 +11,31 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package leChiffre
 
-trait LeChiffreH {
-  val f_ECHO  = 0
-  val f_CYCLE = 1
-  val f_ENABLE = 2
-}
+#include "riscv_test.h"
+#include "../riscv-tools/riscv-tests/isa/macros/scalar/test_macros.h"
+#include "tests/rocc-software/src/xcustom.h"
+#include "tests/rocc-software/src/riscv_test_rocc.h"
+#include "tests/include/le-chiffre.h"
+
+#undef EXTRA_INIT
+#define EXTRA_INIT \
+  csrw mscounteren, 7; \
+  csrw mucounteren, 7;
+
+RVTEST_WITH_ROCC
+
+RVTEST_CODE_BEGIN
+
+jail:
+
+TEST_CASE( 1, x0, 0, nop)
+
+TEST_PASSFAIL
+
+RVTEST_CODE_END
+
+  .data
+RVTEST_DATA_BEGIN
+
+RVTEST_DATA_END

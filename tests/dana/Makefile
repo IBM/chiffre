@@ -18,7 +18,7 @@ CFLAGS := $(CFLAGS) \
 	-I$(abs_top_srcdir)/.. \
 	-I$(abs_top_srcdir)/../../xfiles-dana
 
-chiffre_bitstream ?= $(src_dir)/chiffre-p0.01.h
+chiffre_bitstream ?= $(src_dir)/chiffre-firrtl.h
 
 LIBS := $(LIBS) \
 	-lxfiles-user \

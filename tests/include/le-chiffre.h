@@ -1,4 +1,16 @@
-// See LICENSE.ibm for license details.
+// Copyright 2017 IBM
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef LE_CHIFFRE_TESTS_INCLUDE_LE_CHIFFRE_H_
 #define LE_CHIFFRE_TESTS_INCLUDE_LE_CHIFFRE_H_
@@ -6,9 +18,6 @@
 #define f_ECHO 0
 #define f_CYCLE 1
 #define f_ENABLE 2
-#define f_FAULT_DIFFICULTY 3
-#define f_FAULT_DURATION 4
-#define f_WRITE_SEED 5
 
 #ifndef CUSTOM_X
 #define CUSTOM_X 2
@@ -25,17 +34,5 @@
 
 #define LE_CHIFFRE_ENABLE(rd)                                   \
   ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 0, 0, f_ENABLE);
-
-#define LE_CHIFFRE_WRITE_DIFFICULTY(rd, LABEL)                          \
-  ld a0, LABEL;                                                         \
-  ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 0, 10, f_FAULT_DIFFICULTY);
-
-#define LE_CHIFFRE_WRITE_DURATION(rd, LABEL)                            \
-  ld a0, LABEL;                                                         \
-  ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 0, 10, f_FAULT_DURATION);
-
-#define LE_CHIFFRE_WRITE_SEED(rd, LABEL)                                \
-  ld a0, LABEL;                                                         \
-  ROCC_INSTRUCTION_RAW_R_R_R(CUSTOM_X, rd, 0, 10, f_WRITE_SEED);
 
 #endif  // LE_CHIFFRE_TESTS_INCLUDE_LE_CHIFFRE_H_

@@ -13,8 +13,18 @@
 // limitations under the License.
 package leChiffre
 
-trait LeChiffreH {
-  val f_ECHO  = 0
-  val f_CYCLE = 1
-  val f_ENABLE = 2
+import chisel3._
+import leChiffre.scan.InjectorInfo
+
+class ScanIo extends Bundle {
+  val clk = Input(Bool())
+  val en = Input(Bool())
+  val in = Input(Bool())
+  val out = Output(Bool())
+}
+
+trait AddsScanState {
+  self: Module =>
+
+  def info: InjectorInfo
 }
