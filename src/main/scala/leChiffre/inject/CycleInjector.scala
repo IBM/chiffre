@@ -34,6 +34,17 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
   }
 
   io.scan.out := flipMask(0)
+
+  when (io.scan.en && !enabled) {
+    printf(s"""|[info] $name enabled
+               |[info]   - target: 0x%x
+               |[info]   - mask: 0x%x
+               |""".stripMargin, cycleTarget, flipMask)
+  }
+
+  when (io.scan.en && enabled) {
+    printf(s"[info] $name disabled\n")
+  }
 }
 
 class CycleInjector32(n: Int, id: String) extends CycleInjector(n, 32, id)
