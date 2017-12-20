@@ -19,47 +19,94 @@
 #include "tests/include/le-chiffre.h"
 #include "tests/smoke/faulty-cycle.h"
 
-#undef EXTRA_INIT
-#define EXTRA_INIT \
-  csrw mscounteren, 7; \
-  csrw mucounteren, 7;
-
+        /* Enable access to RoCCs (XS bits) and the FPU (FS bits). The
+	latter is necessary as these tests read FPU CSRs and reading
+	FPU CSRs with a non-zero FS will generate an illegal
+	instruction.
+        */
 .macro init;
-RVTEST_XS_ENABLE
-li a0, MSTATUS_FS & (MSTATUS_FS >> 1)
-csrs mstatus, a0
+        RVTEST_XS_ENABLE
+        li a0, MSTATUS_FS & (MSTATUS_FS >> 1)
+        csrs mstatus, a0
 .endm
 
-RVTEST_CODE_BEGIN
+        RVTEST_CODE_BEGIN
 
-// Inject 0xdeadbeef into the cycle counter, ensure that we read that
-TEST_CASE( 1, x3, 0, LE_CHIFFRE_CYCLE(config_cycle, 3) );
-TEST_CASE( 2, x10, 0, LE_CHIFFRE_ENABLE(10) );
-TEST_CASE( 3, x10, 0xdeadbeef, csrr x10, cycle;)
-TEST_CASE( 4, x10, 0, LE_CHIFFRE_ENABLE(10) );
+        /* Stuck at injection into cycle counter
 
-// Flip all the bits in the frm CSR
-TEST_CASE( 5, x3, 0, LE_CHIFFRE_CYCLE(config_frm, 3) );
-csrr x11, frm
-TEST_CASE( 6, x10, 0, LE_CHIFFRE_ENABLE(10) );
-csrr x10, frm
-TEST_CASE( 7, x10, 0x07, xor x10, x10, x11;)
-TEST_CASE( 8, x10, 0, LE_CHIFFRE_ENABLE(10) );
+        Enable stuck at fault injection and test that this forces the
+	observed cycle counter value to 0xdeadbeef.
 
-TEST_PASSFAIL
+        Register map:
+          - x10: the observed value of the cycle counter
+        */
+	TEST_CASE( 1, x10, 0, LE_CHIFFRE_CYCLE(config_cycle, 10) )
+	TEST_CASE( 2, x10, 0, LE_CHIFFRE_ENABLE(10) )
+	TEST_CASE( 3, x10, 0xdeadbeef, csrr x10, cycle)
+	TEST_CASE( 4, x10, 0, LE_CHIFFRE_ENABLE(10) )
 
-RVTEST_CODE_END
+        /* Cycle injection into frm (floating point rounding mode)
 
-  .data
-RVTEST_DATA_BEGIN
+        Read original frm value. Enable cycle-based injection to flip
+	all frm bits. Read the new frm value and test that the
+	difference between the original and new value is the mask
+	we're injecting.
 
-config_instret:
-reg_instret_LfsrInjector32
+        Register map:
+          - x10: current frm value
+          - x11: original frm value
+        */
+	TEST_CASE( 5, x10, 0, LE_CHIFFRE_CYCLE(config_frm, 10) )
+	csrr x11, frm
+	TEST_CASE( 6, x10, 0, LE_CHIFFRE_ENABLE(10) )
+	nop
+	nop
+	csrr x10, frm
+	TEST_CASE( 7, x10, 0x07, xor x10, x10, x11)
+	TEST_CASE( 8, x10, 0, LE_CHIFFRE_ENABLE(10) )
 
+        /* LFSR injection into fflags (floating point flags)
+
+        Read original fflags value. Enable LFSR injection and
+	repeatedly read fflags looking for any difference. If we read
+	the same thing 16 times, then the test fails. If we ever read
+	a difference, then the test passes.
+
+        Register map:
+          - x10: current fflags value
+          - x11: original fflags value
+          - x12: loop counter
+          - x13: success flag (zero if passing)
+        */
+	TEST_CASE( 9, x10, 0, LE_CHIFFRE_CYCLE(config_fflags, 10) )
+	csrr x11, fflags
+	li x12, 16
+	li x13, 1
+	TEST_CASE( 10, x10, 0, LE_CHIFFRE_ENABLE(10) )
+lfsr_retry:
+	csrr x10, fflags
+	bne x10, x11, lfsr_pass
+	addi x12, x12, -1
+	bnez x12, lfsr_retry
+        j lfsr_fail
+lfsr_pass:
+        xor x13, x13, x13
+lfsr_fail:
+        TEST_CASE( 11, x13, 0, )
+        TEST_CASE( 12, x10, 0, LE_CHIFFRE_ENABLE(10) )
+
+        /* Test cleanup */
+        TEST_PASSFAIL
+        RVTEST_CODE_END
+
+        /* Scan chain bitstreams for these tests (in faulty-cycle.h) */
+        .data
+        RVTEST_DATA_BEGIN
+config_fflags:
+        reg_fflags_LfsrInjector32
 config_cycle:
-reg_cycle_stuckAt
-
+        reg_cycle_stuckAt
 config_frm:
-reg_frm_CycleInjector32
+        reg_frm_CycleInjector32
 
-RVTEST_DATA_END
+        RVTEST_DATA_END

@@ -188,11 +188,11 @@ class FaultInstrumentation(
               ),
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
-                Annotation(scanEn, wt, "sink scan_en"),
-                Annotation(scanClk, wt, "sink scan_clk"),
-                Annotation(comp, st, s"injector:$id:$defi:${subcircuit.main}"),
-                Annotation(scanIn, st, s"slave:in:$id:${comp.serialize}"),
-                Annotation(scanOut, st, s"slave:out:$id:${comp.serialize}")
+                Annotation(scanEn,  wt,  "sink scan_en"                          ),
+                Annotation(scanClk, wt,  "sink scan_clk"                         ),
+                Annotation(comp,    st, s"injector:$id:$defi:${subcircuit.main}" ),
+                Annotation(scanIn,  st, s"slave:in:$id:${comp.serialize}"        ),
+                Annotation(scanOut, st, s"slave:out:$id:${comp.serialize}"       )
               ),
               renames = x.renames ++ Map(comp.name -> rename)
             )
