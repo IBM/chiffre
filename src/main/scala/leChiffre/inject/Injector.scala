@@ -47,9 +47,9 @@ abstract class InjectorPrimitive(n: Int, id: String) extends InjectorLike(n, id)
 
 /** An injector that adds bits to the scan chain */
 abstract class Injector(n: Int, id: String) extends InjectorLike(n, id) {
-  if (info == null) {
+  if (info == null) { // scalastyle:off
     throw new FaultInstrumentationException(
-      "Children of class Injector must use a `lazy val` for abstract member `info`") }
+      "Children of Injector must use a `lazy val` for abstract member `info`") }
   annotate(
     ChiselAnnotation(
       this,

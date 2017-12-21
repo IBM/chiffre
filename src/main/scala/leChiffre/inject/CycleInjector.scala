@@ -17,7 +17,8 @@ import chisel3._
 import chisel3.util._
 import leChiffre.scan._
 
-class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id) {
+class CycleInjector(n: Int, cycleWidth: Int, id: String)
+    extends Injector(n, id) {
   val cycleTarget = Reg(UInt(cycleWidth.W))
   val cycleCounter = Reg(UInt(cycleWidth.W))
   val flipMask = Reg(UInt(n.W))
@@ -55,4 +56,6 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id)
   }
 }
 
+// scalastyle:off magic.number
 class CycleInjector32(n: Int, id: String) extends CycleInjector(n, 32, id)
+// scalastyle:on magic.number

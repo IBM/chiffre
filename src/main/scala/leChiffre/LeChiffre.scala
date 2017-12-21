@@ -48,8 +48,9 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
 
   val checksum = Reg(UInt(checksumWidth.W))
   val Seq(cycle_count, read_count, cycles_to_scan) =
-    Seq.fill(3)(Reg(UInt(cycleWidth.W)))
-  val Seq(rd_d, rs1_d, rs2_d, resp_d) = Seq.fill(4)(Reg(UInt()))
+    Seq.fill(3)(Reg(UInt(cycleWidth.W))) // scalastyle:off
+  val Seq(rd_d, rs1_d, rs2_d, resp_d) =
+    Seq.fill(4)(Reg(UInt())) // scalastyle:off
 
   val fletcher = Module(new Fletcher(checksumWidth))
 
@@ -67,7 +68,8 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   }
 
   when (do_cycle) {
-    state := Mux(io.cmd.bits.status.vm === 0.U, s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
+    state := Mux(io.cmd.bits.status.vm === 0.U,
+                 s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
     cycle_count := 0.U
     read_count := 0.U
     cycles_to_scan := 0.U - 1.U

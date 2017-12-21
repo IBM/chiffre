@@ -14,6 +14,7 @@
 package leChiffre.passes
 
 import firrtl._
+import firrtl.ir._
 import firrtl.passes._
 import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
@@ -63,11 +64,12 @@ object ScanChainAnnotation {
                                       Option[ComponentName])] = a match {
     case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id, key, a,b,c)) =>
       val k =
-        if (key == null) None
-        else ComponentName(c, ModuleName(b, CircuitName(a))) match {
-          case x: ComponentName => Some(x)
-          case _ => None
-      }
+        if (key == null) { None } // scalastyle:off
+        else { ComponentName(c, ModuleName(b, CircuitName(a))) match {
+                case x: ComponentName => Some(x)
+                case _ => None
+              }
+        }
       Some((ComponentName(n, m), ctrl, dir, id, k))
     case _ => None
   }
@@ -101,58 +103,60 @@ object ScanChainDescription {
 }
 
 class ScanChainTransform extends Transform {
-  def inputForm = MidForm
-  def outputForm = MidForm
-  def transforms = Seq(
+  def inputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = MidForm
+  def transforms: Seq[Transform] = Seq(
     new firrtl.passes.wiring.WiringTransform
   )
+
+  def analyze(circuit: Circuit, annos: Seq[Annotation]):
+      Map[String, ScanChainInfo] = {
+    val s = mutable.HashMap[String, ScanChainInfo]()
+    annos.foreach {
+      case ScanChainAnnotation(comp, ctrl, dir, id, key) => (ctrl, dir) match {
+        case ("master", "in") => s(id) = ScanChainInfo(masterIn = comp)
+        case _ =>
+      }
+      case _ =>
+    }
+    annos.foreach {
+      case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
+        case ("master", "out") => s(id).copy(masterOut = Some(comp))
+        case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn ++
+                                             Map(key.get -> comp))
+        case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++
+                                              Map(key.get -> comp))
+        case _ => s(id)
+      }
+      case ScanChainInjector(comp, id, inst, mod) => s(id) = s(id)
+          .copy(injectors = s(id).injectors ++
+                  Map(comp -> ModuleName(mod, comp.module.circuit)))
+      case _ =>
+    }
+    annos.foreach {
+      case ScanChainDescription(mod, id, d) => {
+        s(id) = s(id)
+          .copy(description = s(id).description ++
+                  Map(ModuleName(mod.name, CircuitName(circuit.main)) -> d))
+      }
+      case _ =>
+    }
+    s.toMap
+  }
+
   def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
     case Nil => state
     case p =>
-      val s = mutable.HashMap[String, ScanChainInfo]()
-      p.foreach {
-        case ScanChainAnnotation(comp, ctrl, dir, id, key) => (ctrl, dir) match {
-          case ("master", "in") => s(id) = ScanChainInfo(masterIn = comp)
-          case _ =>
-        }
-        case _ =>
-      }
-      p.foreach {
-        case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
-          case ("master", "out") => s(id).copy(masterOut = Some(comp))
-          case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn ++
-                                               Map(key.get -> comp))
-          case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++
-                                                Map(key.get -> comp))
-          case _ => s(id)
-        }
-        case ScanChainInjector(comp, id, inst, mod) => s(id) = s(id)
-            .copy(injectors = s(id).injectors ++
-                    Map(comp -> ModuleName(mod, comp.module.circuit)))
-        case _ =>
-      }
-      p.foreach {
-        case ScanChainDescription(mod, id, d) => {
-          s(id) = s(id)
-            .copy(description = s(id).description ++
-                    Map(ModuleName(mod.name, CircuitName(state.circuit.main)) -> d))
-        }
-        case _ =>
-      }
+      val s = analyze(state.circuit, p)
 
       s.foreach{ case (k, v) => logger.info(
                   s"""|[info] scan chain:
                       |[info]   name: ${k}
                       |${v.serialize("[info]   ")}""".stripMargin) }
 
-      // [todo] Order the scan chain to minimize distance. Roughly,
-      // this should start from each source ("scan out") and connect
-      // to it's closest sink ("scan in"). Distance is determined via
-      // BFS. This should then be `O(n * m)` for `n` scan chain nodes
-      // in a circuit with `m` instances.
+      // [todo] Order the scan chain based on distance
 
-      // [todo] Set the emitted directory and file name (via another
-      // annotation?)
+      // [todo] Set the emitted directory and file name
       val scanFile = "scan-chain.yaml"
       val w = new FileWriter(scanFile)
       val sc = s.map{ case(k, v) => v.toScanChain(k) }
@@ -168,10 +172,9 @@ class ScanChainTransform extends Transform {
       val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
         // [todo] This is not deterministic
         val chain: Seq[ComponentName] =
-          (  v.masterOut.get +:
-             v.injectors
-             .flatMap{ case (k, _) => Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+
-             v.masterIn  )
+          (v.masterOut.get +:
+             v.injectors.flatMap{ case (k, _) =>
+               Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+ v.masterIn  )
 
         val annotations = chain
           .grouped(2).zipWithIndex
@@ -186,7 +189,8 @@ class ScanChainTransform extends Transform {
       }
 
       val sx = state.copy(
-        annotations = Some(AnnotationMap(state.annotations.get.annotations ++ ax)))
+        annotations = Some(
+          AnnotationMap(state.annotations.get.annotations ++ ax)))
 
       transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
   }

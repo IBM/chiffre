@@ -19,6 +19,7 @@ import uncore.tilelink.{TLKey, TLId}
 
 case object BuildChiffre extends Field[ChiffreParameters]
 
+// scalastyle:off magic.number
 case class ChiffreParameters (
   checksumWidth: Int = 32,
   cycleWidth: Int = 32
@@ -37,3 +38,4 @@ trait LeChiffreH {
   require(isPow2(checksumWidth),
           "checksumWidth BuildChiffre parameter must be a power of 2")
 }
+// scalastyle:on magic.number

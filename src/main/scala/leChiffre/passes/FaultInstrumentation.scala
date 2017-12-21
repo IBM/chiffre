@@ -64,8 +64,8 @@ case class Modifications(
 class FaultInstrumentation(
   compMap: Map[String, Seq[(ComponentName, String, String)]])
     extends Transform {
-  def inputForm = MidForm
-  def outputForm = MidForm
+  def inputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = MidForm
   def execute(state: CircuitState): CircuitState = {
     val modifications = analyze(state.circuit)
 
