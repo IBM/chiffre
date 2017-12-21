@@ -5,7 +5,7 @@ tags_scala = \
 	$(base_dir)/../chisel3 \
 	$(base_dir)/src/main/scala
 
-.PHONY: all clean default tags
+.PHONY: all checkstyle clean default tags
 
 default: all
 all: $(base_dir)/utils/bin/scan-chain-config.jar
@@ -24,4 +24,6 @@ tags:
 
 clean:
 	rm -rf $(base_dir)/TAGS $(base_dir)/xtags
-	rm -rf $(base_dir)/utils/bin/scan-chain-config.jar
+
+checkstyle:
+	sbt scalastyle test:scalastyle

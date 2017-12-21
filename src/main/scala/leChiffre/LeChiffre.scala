@@ -45,17 +45,14 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
     'RESP, 'ERROR))
   val state = Reg(init = s_('WAIT))
-  val cycle_count = Reg(UInt(64.W)) // [#2] config parameter
-  val read_count = Reg(UInt(64.W)) // [#2] config parameter
-  val cycles_to_scan = Reg(UInt(32.W)) // [#2] config parameter
-  val checksum = Reg(UInt(32.W)) // [#2] config parameter
-  val ones_to_scan = Reg(UInt(64.W)) // [#2] config parameter
-  val rd_d = Reg(UInt())
-  val rs1_d = Reg(UInt())
-  val rs2_d = Reg(UInt())
-  val resp_d = Reg(UInt())
 
-  val fletcher = Module(new Fletcher(checksum.getWidth))
+  val checksum = Reg(UInt(checksumWidth.W))
+  val Seq(cycle_count, read_count, cycles_to_scan) =
+    Seq.fill(3)(Reg(UInt(cycleWidth.W))) // scalastyle:off
+  val Seq(rd_d, rs1_d, rs2_d, resp_d) =
+    Seq.fill(4)(Reg(UInt())) // scalastyle:off
+
+  val fletcher = Module(new Fletcher(checksumWidth))
 
   io.cmd.ready := state === s_('WAIT)
 
@@ -71,11 +68,11 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   }
 
   when (do_cycle) {
-    state := Mux(io.cmd.bits.status.vm === 0.U, s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
+    state := Mux(io.cmd.bits.status.vm === 0.U,
+                 s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
     cycle_count := 0.U
     read_count := 0.U
     cycles_to_scan := 0.U - 1.U
-    ones_to_scan := io.cmd.bits.rs2
     printfInfo("Cycling: addr 0x%x\n", io.cmd.bits.rs1)
   }
 
@@ -85,8 +82,8 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     resp_d := 0.U
   }
 
-  val fletcherWord = Reg(UInt(16.W))
-  fletcher.io.data.bits.word := scan.out ## fletcherWord(15,1)
+  val fletcherWord = Reg(UInt((checksumWidth / 2).W))
+  fletcher.io.data.bits.word := scan.out ## (fletcherWord >> 1)
   fletcher.io.data.valid := false.B
 
   when (state === s_('CYCLE_TRANSLATE)) {
@@ -111,8 +108,9 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   when (piso.s.valid) {
     cycle_count := cycle_count + 1.U
 
-    fletcherWord := scan.out ## fletcherWord(15,1)
-    when (cycle_count(3,0) === 15.U || last) {
+    fletcherWord := scan.out ## (fletcherWord >> 1)
+    when (cycle_count(log2Up(checksumWidth / 2) - 1, 0) ===
+            (checksumWidth / 2 - 1).U || last) {
       fletcher.io.data.valid := true.B
       fletcher.io.data.bits.cmd := k_compute.U
     }
@@ -150,15 +148,23 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     }
     done
   }
+
+  /* This contains no logic handling for when the {checksum, length} is
+   * not equal to one data unit (tlDataBits in length) coming back
+   * over TileLink */
+  require((checksumWidth + cycleWidth) == tlDataBits,
+          "Header (checksum, cycles) of Chiffre Scan must be equal to tlDataBits")
   when (state === s_('CYCLE_READ)) {
     when (autlAcqGrant(piso.p.ready)) {
       read_count := read_count + xLen.U
-      addr_d := addr_d + (tlDataBits / 8).U
+      addr_d := addr_d + tlDataBytes.U
       when (read_count === 0.U) {
-        checksum := gnt.bits.data(63,32)
-        cycles_to_scan := gnt.bits.data(31,0)
-        printfInfo("Bits to scan: 0x%x\n", gnt.bits.data(31,0))
-        printfInfo("Checksum: 0x%x\n", gnt.bits.data(63,32))
+        val msbs = gnt.bits.data(cycleWidth + checksumWidth - 1, cycleWidth)
+        val lsbs = gnt.bits.data(cycleWidth - 1, 0)
+        checksum := msbs
+        cycles_to_scan := lsbs
+        printfInfo("Checksum: 0x%x\n", msbs)
+        printfInfo("Bits to scan: 0x%x\n", lsbs)
       }
       when (read_count >= cycles_to_scan) {
         piso.p.bits.count := tlDataBits.U - read_count + cycles_to_scan - 1.U

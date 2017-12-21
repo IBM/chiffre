@@ -64,8 +64,8 @@ case class Modifications(
 class FaultInstrumentation(
   compMap: Map[String, Seq[(ComponentName, String, String)]])
     extends Transform {
-  def inputForm = MidForm
-  def outputForm = MidForm
+  def inputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = MidForm
   def execute(state: CircuitState): CircuitState = {
     val modifications = analyze(state.circuit)
 
@@ -83,7 +83,9 @@ class FaultInstrumentation(
     val mx = state.circuit.modules map onModule(modifications)
     val cx = ToWorkingIR.run(state.circuit.copy(modules = mxx ++ mx))
 
-    val inAnno = state.annotations.getOrElse(AnnotationMap(Seq.empty)).annotations
+    val inAnno = state.annotations
+      .getOrElse(AnnotationMap(Seq.empty))
+      .annotations
     state.copy(circuit = cx,
                annotations = Some(AnnotationMap(inAnno ++ ax)))
   }
@@ -149,7 +151,7 @@ class FaultInstrumentation(
             t match {
               case _: GroundType =>
               case _ => throw new FaultInstrumentationException(
-                "[todo] Only able to currently instrument GroundType components")
+                "[todo] Only GroundType components are instrumentable")
             }
             val width = getWidth(t)
             val numBits = width match { case IntWidth(x) => x.toInt }

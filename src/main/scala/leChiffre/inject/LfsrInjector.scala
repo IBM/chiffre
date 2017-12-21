@@ -54,6 +54,6 @@ class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
 }
 
 class LfsrInjector32(n: Int, id: String)
-    extends InjectorBitwise(n, id, new LfsrInjector(32, id)) {
-  lazy val info = LfsrInjectorInfo(n, 32)
+    extends InjectorBitwise(n, id, new LfsrInjector(32, id)) { // scalastyle:off
+  lazy val info = LfsrInjectorInfo(n, 32) // scalastyle:off
 }

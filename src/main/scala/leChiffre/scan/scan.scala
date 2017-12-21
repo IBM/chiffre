@@ -16,7 +16,7 @@ package leChiffre
 package object scan {
   /* A configurable region of the scan chain */
   sealed trait ScanField {
-    def name = this.getClass.getSimpleName
+    def name: String = this.getClass.getSimpleName
 
     def width: Int
 
@@ -35,14 +35,15 @@ package object scan {
   }
 
   case class Cycle(width: Int, value: Option[BigInt] = None) extends ScanField
-  case class CycleInject(width: Int, value: Option[BigInt] = None) extends ScanField
+  case class CycleInject(width: Int, value: Option[BigInt] = None)
+      extends ScanField
   case class Mask(width: Int, value: Option[BigInt] = None) extends ScanField
   case class StuckAt(width: Int, value: Option[BigInt] = None) extends ScanField
   case class Difficulty(width: Int, probability: Option[Double] = None)
       extends ScanField {
-    val value = if (probability.isEmpty) None
-    else Some(
-      BigDecimal((math.pow(2, width) - 1) * probability.getOrElse(0.0)).toBigInt)
+    val value = if (probability.isEmpty) { None }
+    else { Some(BigDecimal((math.pow(2, width) - 1) *
+                             probability.getOrElse(0.0)).toBigInt) }
   }
   case class Seed(width: Int, value: Option[BigInt] = None) extends ScanField
 
@@ -57,10 +58,10 @@ package object scan {
     def getWidth(): Int = fields.foldLeft(0)( (l, r) => l + r.width )
 
     /* Prety print */
-    def serialize(indent: String = ""): String = {
-      s"""|${indent}type: $tpe
-          |${indent}width: $width
-          |${fields.map(a => s"${a.serialize(indent + "  ")}").mkString("\n")}"""
+    def serialize(tab: String = ""): String = {
+      s"""|${tab}type: $tpe
+          |${tab}width: $width
+          |${fields.map(a => s"${a.serialize(tab + "  ")}").mkString("\n")}"""
         .stripMargin
     }
 
@@ -77,7 +78,8 @@ package object scan {
       .flatten
   }
 
-  case class CycleInjectorInfo(width: Int, cycleWidth: Int) extends InjectorInfo {
+  case class CycleInjectorInfo(width: Int, cycleWidth: Int)
+      extends InjectorInfo {
     val tpe = s"cycle$cycleWidth"
     fields = Seq(Cycle(cycleWidth), CycleInject(width))
   }
@@ -102,13 +104,13 @@ package object scan {
   import net.jcazevedo.moultingyaml.DefaultYamlProtocol
   object ScanChainProtocol extends DefaultYamlProtocol {
     implicit object scanFieldFormat extends YamlFormat[InjectorInfo] {
-      def write(f: InjectorInfo) = f match {
+      def write(f: InjectorInfo): YamlValue = f match {
         case x => YamlObject(
           YamlString("tpe") -> YamlString(x.tpe),
           YamlString("width") -> YamlNumber(x.width))
       }
       val matcher = raw"(\w+?)(\d+)".r
-      def read(v: YamlValue) = v.asYamlObject.getFields(
+      def read(v: YamlValue): InjectorInfo = v.asYamlObject.getFields(
         YamlString("tpe"),
         YamlString("width")) match {
         case Seq(YamlString(matcher(name, num)),

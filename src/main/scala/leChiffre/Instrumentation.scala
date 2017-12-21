@@ -34,10 +34,11 @@ trait ChiffreController {
                        s"source $name"))
   }
 
-  private def scanMaster(in: InstanceId, out: InstanceId, name: String): Unit = {
-    if (scanId == null) {
+  private def scanMaster(in: InstanceId, out: InstanceId,
+                         name: String): Unit = {
+    if (scanId == null) { // scalastyle:off
       throw new Exception(
-        "Chiffre Controller attribute 'scanId' was 'null' (should be a 'lazy val')") }
+        "Chiffre Controller 'scanId' should be a 'lazy val'") }
     annotate(
       ChiselAnnotation(
         in,
