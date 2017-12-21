@@ -19,15 +19,16 @@
 #include "tests/include/le-chiffre.h"
 #include "tests/smoke/faulty-cycle.h"
 
-        /* Enable access to RoCCs (XS bits) and the FPU (FS bits). The
-	latter is necessary as these tests read FPU CSRs and reading
-	FPU CSRs with a non-zero FS will generate an illegal
-	instruction.
+        /* Enable access to RoCCs (XS bits), the FPU (FS bits), and
+	the cycle counter by user processes. RoCC access is required
+	to talk to the controller (LeChiffre) and FPU CSRs and the
+	cycle counter are used for fault injection tests.
         */
 .macro init;
         RVTEST_XS_ENABLE
         li a0, MSTATUS_FS & (MSTATUS_FS >> 1)
         csrs mstatus, a0
+        csrw mucounteren, 7
 .endm
 
         RVTEST_CODE_BEGIN
