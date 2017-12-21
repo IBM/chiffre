@@ -13,8 +13,27 @@
 // limitations under the License.
 package leChiffre
 
+import chisel3.util.isPow2
+import cde.{Field, Parameters}
+import uncore.tilelink.{TLKey, TLId}
+
+case object BuildChiffre extends Field[ChiffreParameters]
+
+case class ChiffreParameters (
+  checksumWidth: Int = 32,
+  cycleWidth: Int = 32
+)
+
 trait LeChiffreH {
+  implicit val p: Parameters
+
   val f_ECHO  = 0
   val f_CYCLE = 1
   val f_ENABLE = 2
+
+  val cycleWidth = p(BuildChiffre).cycleWidth
+  val checksumWidth = p(BuildChiffre).checksumWidth
+
+  require(isPow2(checksumWidth),
+          "checksumWidth BuildChiffre parameter must be a power of 2")
 }
