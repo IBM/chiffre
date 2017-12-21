@@ -157,7 +157,7 @@ class FaultInstrumentation(
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
 
-            val (subcircuit, defms, annosx) = if (cmods.contains(injector)) {
+            val (subcir, defms, annosx) = if (cmods.contains(injector)) {
               (cmods(injector).circuit, Seq.empty, Seq.empty)
             } else {
               cmods(injector) = inlineCompile(injector, numBits, id,
@@ -167,7 +167,7 @@ class FaultInstrumentation(
                if (cmods(injector).annotations.isEmpty) { Seq.empty }
                else { cmods(injector).annotations.get.annotations   } )
             }
-            val defi = moduleNamespace.newName(subcircuit.main)
+            val defi = moduleNamespace.newName(subcir.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
 
             val Seq(scanEn, scanClk, scanIn, scanOut) =
@@ -180,39 +180,40 @@ class FaultInstrumentation(
 
             val x = mods(m.name)
             mods(m.name) = x.copy(
-              defines = DefInstance(NoInfo, defi, subcircuit.main) +:
+              defines = DefInstance(NoInfo, defi, subcir.main) +:
                 x.defines :+ DefWire(NoInfo, rename, t),
               connects = x.connects ++ Seq(
                 Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
                 Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
                 Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
-                Connect(NoInfo, toExp(rename), castRhs(t, toExp(s"$defi.io.out")))
+                Connect(NoInfo, toExp(rename),castRhs(t,toExp(s"$defi.io.out")))
               ),
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
-                Annotation(scanEn,  wt,  "sink scan_en"                          ),
-                Annotation(scanClk, wt,  "sink scan_clk"                         ),
-                Annotation(comp,    st, s"injector:$id:$defi:${subcircuit.main}" ),
-                Annotation(scanIn,  st, s"slave:in:$id:${comp.serialize}"        ),
-                Annotation(scanOut, st, s"slave:out:$id:${comp.serialize}"       )
+                Annotation(scanEn,  wt,  "sink scan_en"                      ),
+                Annotation(scanClk, wt,  "sink scan_clk"                     ),
+                Annotation(comp,    st, s"injector:$id:$defi:${subcir.main}" ),
+                Annotation(scanIn,  st, s"slave:in:$id:${comp.serialize}"    ),
+                Annotation(scanOut, st, s"slave:out:$id:${comp.serialize}"   )
               ),
               renames = x.renames ++ Map(comp.name -> rename)
             )
           }
         case m: ExtModule =>
-          throw new FaultInstrumentationException("Tried to instrument an ExtModule")
+          throw new FaultInstrumentationException(
+            "Tried to instrument an ExtModule")
       }
 
     mods.map{ case (k, v) =>
       logger.info(s"[info] $k")
       logger.info(v.serialize("[info]   "))
-      // logger.info(v.serializeInMemory("[info]   "))
     }
 
     mods.toMap
   }
 
-  private def onModule(mods: Map[String, Modifications])(m: DefModule): DefModule = {
+  private def onModule(mods: Map[String, Modifications])
+                      (m: DefModule): DefModule = {
     mods.get(m.name) match {
       case None => m
       case Some(l) => m match {
@@ -244,7 +245,8 @@ class FaultInstrumentation(
     }
   }
 
-  private def replace(renames: Map[String, String])(e: Expression): Expression = {
+  private def replace(renames: Map[String, String])
+                     (e: Expression): Expression = {
     e match {
       case ex: WRef => ex.name match {
         case name if renames.contains(name) => ex.copy(name=renames(name))

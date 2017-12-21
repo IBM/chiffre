@@ -35,6 +35,7 @@ case class ScanChainInfo(
   injectors: Map[ComponentName, ModuleName] = Map.empty,
   /* This is keyed by the injector module name */
   description: Map[ModuleName, InjectorInfo] = Map.empty) {
+  // scalastyle:off line.size.limit
   def serialize(tab: String): String =
     s"""|${tab}master:
         |${tab}  in: ${masterIn.name}
@@ -44,6 +45,7 @@ case class ScanChainInfo(
         |${tab}description:
         |${description.map{case(k,v)=>s"${tab}  ${k.name}: $v"}.mkString("\n")}"""
       .stripMargin
+  // scalastyle:on line.size.limit
 
   def toScanChain(name: String): ScanChain = {
     val components: Seq[FaultyComponent] = injectors.map{ case(c, m) =>
@@ -57,18 +59,21 @@ case class ScanChainInfo(
 object ScanChainAnnotation {
   def apply(comp: ComponentName, ctrl: String, dir: String, id: String,
             key: Option[ComponentName]): Annotation =
-    Annotation(comp, classOf[ScanChainTransform],
-               s"""$ctrl:$dir:$id:${if (key.isEmpty) "" else key.get.serialize}""")
-  val matcher = raw"(master|slave):(.+):(.+):((.+?)\.(.+?)\.(.+?))?$$".r
+    Annotation(
+      comp, classOf[ScanChainTransform],
+      s"""$ctrl:$dir:$id:${if (key.isEmpty) "" else key.get.serialize}""")
+  val re = raw"(master|slave):(.+):(.+):((.+?)\.(.+?)\.(.+?))?$$".r
   def unapply(a: Annotation): Option[(ComponentName, String, String, String,
                                       Option[ComponentName])] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(ctrl, dir, id, key, a,b,c)) =>
+    case Annotation(ComponentName(n, m), _, re(ctrl, dir, id, key, a,b,c)) =>
       val k =
-        if (key == null) { None } // scalastyle:off
-        else { ComponentName(c, ModuleName(b, CircuitName(a))) match {
-                case x: ComponentName => Some(x)
-                case _ => None
-              }
+        if (key == null) { // scalastyle:off
+          None
+        } else {
+          ComponentName(c, ModuleName(b, CircuitName(a))) match {
+            case x: ComponentName => Some(x)
+            case _ => None
+          }
         }
       Some((ComponentName(n, m), ctrl, dir, id, k))
     case _ => None
@@ -80,9 +85,10 @@ object ScanChainInjector {
             moduleName: String): Annotation =
     Annotation(comp, classOf[ScanChainTransform],
                s"injector:$instanceName:$moduleName")
-  val matcher = raw"injector:(.+):(.+):(.+)".r
-  def unapply(a: Annotation): Option[(ComponentName, String, String, String)] = a match {
-    case Annotation(ComponentName(n, m), _, matcher(id, instanceName, moduleName)) =>
+  val re = raw"injector:(.+):(.+):(.+)".r
+  def unapply(a: Annotation):
+      Option[(ComponentName, String, String, String)] = a match {
+    case Annotation(ComponentName(n, m), _, re(id, instanceName, moduleName)) =>
       Some((ComponentName(n, m), id, instanceName, moduleName))
     case _ => None
   }
@@ -93,10 +99,10 @@ object ScanChainDescription {
     Annotation(mod, classOf[ScanChainTransform],
                s"description:$id:" + (d.toYaml.prettyPrint).mkString )
 
-  val matcher = raw"(?s)description:(.+?):(.+)".r
+  val re = raw"(?s)description:(.+?):(.+)".r
   def unapply(a: Annotation):
       Option[(ModuleName, String, InjectorInfo)] = a match {
-    case Annotation(ModuleName(m, c), _, matcher(id, raw)) =>
+    case Annotation(ModuleName(m, c), _, re(id, raw)) =>
       Some((ModuleName(m, c), id, raw.parseYaml.convertTo[InjectorInfo]))
     case _ => None
   }
