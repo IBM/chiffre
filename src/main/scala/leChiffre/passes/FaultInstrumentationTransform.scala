@@ -35,17 +35,19 @@ object FaultInjectionAnnotation {
 
 class FaultInstrumentationTransform extends Transform {
   def inputForm: CircuitForm = MidForm
-  def outputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = HighForm
   def transforms(compMap: Map[String, Seq[(ComponentName, String, String)]]):
       Seq[Transform] = Seq(
     new FaultInstrumentation(compMap),
-    ToWorkingIR,
-    Uniquify,
-    ExpandWhens,
-    InferTypes,
-    ResolveKinds,
-    ResolveGenders,
-    new ScanChainTransform
+        ToWorkingIR,
+        InferTypes,
+        Uniquify,
+        ExpandWhens,
+        CheckInitialization,
+        InferTypes,
+        ResolveKinds,
+        ResolveGenders,
+        new ScanChainTransform
   )
   def execute(s: CircuitState): CircuitState = getMyAnnotations(s) match {
     case Nil => s

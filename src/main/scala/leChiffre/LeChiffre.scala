@@ -82,10 +82,6 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     resp_d := 0.U
   }
 
-  val fletcherWord = Reg(UInt((checksumWidth / 2).W))
-  fletcher.io.data.bits.word := scan.out ## (fletcherWord >> 1)
-  fletcher.io.data.valid := false.B
-
   when (state === s_('CYCLE_TRANSLATE)) {
     state := s_('ERROR)
     printfError("Address translation not implemented\n")
@@ -104,17 +100,20 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   piso.p.bits.count := (tlDataBits - 1).U
   scan.clk := piso.s.valid
   scan.out := piso.s.bits
-  val last = cycle_count === cycles_to_scan - 1.U
   when (piso.s.valid) {
     cycle_count := cycle_count + 1.U
-
-    fletcherWord := scan.out ## (fletcherWord >> 1)
-    when (cycle_count(log2Up(checksumWidth / 2) - 1, 0) ===
-            (checksumWidth / 2 - 1).U || last) {
-      fletcher.io.data.valid := true.B
-      fletcher.io.data.bits.cmd := k_compute.U
-    }
+    fletcher.io.data.bits.cmd := k_compute.U
   }
+
+  // Checksum computation
+  val fletcherWords = RegEnable(Vec(tlDataBits/(checksumWidth/2),
+    UInt((checksumWidth/2).W)).fromBits(gnt.bits.data), piso.p.valid)
+  val idx = cycle_count(log2Up(tlDataBits) - 1, log2Up(checksumWidth/2))
+  fletcher.io.data.bits.word := fletcherWords(idx)
+  val last = cycle_count === cycles_to_scan - 1.U
+  fletcher.io.data.valid := piso.s.valid && (last ||
+    cycle_count(log2Up(checksumWidth / 2) - 1, 0) ===
+    (checksumWidth / 2 - 1).U )
 
   // AUTL Acq/Gnt handling
   val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits

@@ -110,7 +110,7 @@ object ScanChainDescription {
 
 class ScanChainTransform extends Transform {
   def inputForm: CircuitForm = MidForm
-  def outputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = HighForm
   def transforms: Seq[Transform] = Seq(
     new firrtl.passes.wiring.WiringTransform
   )
