@@ -1,3 +1,3 @@
-A RoCC for automating fault injections in a running system.
+## Chained Hierarchical Injection for Fault Resiliency Evaluation (Chiffre)
 
-This requires the fault injection framework of https://github.ibm.com/perfect/fault-injection.
+This early release demonstrates the use of [Chisel](https://github.com/freechipsproject/chisel3) and [Firrtl](https://github.com/freechipsproject/firrtl) to automatically instrument specific circuits with fault injection logic.
