@@ -34,7 +34,7 @@ sealed class InjectorIo(n: Int) extends Bundle {
 sealed abstract class InjectorLike(n: Int, id: String) extends Module
     with AddsScanState {
   val io = IO(new InjectorIo(n))
-  val enabled = Reg(init = false.B)
+  val enabled = RegInit(false.B)
   when (io.scan.en) { enabled := ~enabled }
 }
 

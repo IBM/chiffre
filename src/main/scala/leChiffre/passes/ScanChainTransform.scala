@@ -27,8 +27,7 @@ import net.jcazevedo.moultingyaml._
 case class ScanChainException(msg: String) extends PassException(msg)
 
 case class ScanChainInfo(
-  masterIn: ComponentName,
-  masterOut: Option[ComponentName] = None,
+  masterScan: ComponentName,
   /* Everything here is keyed by the injector component */
   slaveIn: Map[ComponentName, ComponentName] = Map.empty,
   slaveOut: Map[ComponentName, ComponentName] = Map.empty,
@@ -38,8 +37,7 @@ case class ScanChainInfo(
   // scalastyle:off line.size.limit
   def serialize(tab: String): String =
     s"""|${tab}master:
-        |${tab}  in: ${masterIn.name}
-        |${tab}  out: ${masterOut.getOrElse("none")}
+        |${tab}  scan: ${masterScan}
         |${tab}slaves:
         |${injectors.map{ case (k, v) => s"${tab}  ${v.name}, ${k.module.name}, ${slaveIn(k).module.name}.${slaveIn(k).name}, ${slaveOut(k).module.name}.${slaveOut(k).name}"}.mkString("\n")}
         |${tab}description:
@@ -120,14 +118,13 @@ class ScanChainTransform extends Transform {
     val s = mutable.HashMap[String, ScanChainInfo]()
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) => (ctrl, dir) match {
-        case ("master", "in") => s(id) = ScanChainInfo(masterIn = comp)
+        case ("master", "scan") => s(id) = ScanChainInfo(masterScan = comp)
         case _ =>
       }
       case _ =>
     }
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
-        case ("master", "out") => s(id).copy(masterOut = Some(comp))
         case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn ++
                                              Map(key.get -> comp))
         case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++
@@ -176,11 +173,25 @@ class ScanChainTransform extends Transform {
       w.close()
 
       val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
+        val masterIn = v.masterScan.copy(name=v.masterScan.name + ".in")
+        val masterOut = v.masterScan.copy(name=v.masterScan.name + ".out")
+        val masterClk = v.masterScan.copy(name=v.masterScan.name + ".clk")
+        val masterEn = v.masterScan.copy(name=v.masterScan.name + ".en")
+
+        val masterAnnotations = Seq(
+          Annotation(
+            masterClk,
+            classOf[firrtl.passes.wiring.WiringTransform],
+            s"source scan_clk"),
+          Annotation(
+            masterEn,
+            classOf[firrtl.passes.wiring.WiringTransform],
+            s"source scan_en"))
+
         // [todo] This is not deterministic
-        val chain: Seq[ComponentName] =
-          (v.masterOut.get +:
-             v.injectors.flatMap{ case (k, _) =>
-               Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+ v.masterIn  )
+        val chain: Seq[ComponentName] = (masterOut +:
+          v.injectors.flatMap{ case (k, _) =>
+            Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+ masterIn  )
 
         val annotations = chain
           .grouped(2).zipWithIndex
@@ -191,13 +202,15 @@ class ScanChainTransform extends Transform {
                 Annotation(r,
                            classOf[firrtl.passes.wiring.WiringTransform],
                            s"sink scan_${name}_$i") )}
-        a ++ annotations
+        a ++ masterAnnotations ++ annotations
       }
 
       val sx = state.copy(
         annotations = Some(
           AnnotationMap(state.annotations.get.annotations ++ ax)))
 
-      transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
+      val cx = transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
+
+      cx
   }
 }

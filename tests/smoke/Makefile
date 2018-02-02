@@ -17,7 +17,8 @@ CFLAGS := $(CFLAGS) \
 	-fvisibility=hidden \
 	-nostdlib \
 	-nostartfiles \
-	-I$(abs_top_srcdir)/..
+	-I$(abs_top_srcdir) \
+	-I$(RISCVTOOLS) \
 
 all: $(tests_p)
 

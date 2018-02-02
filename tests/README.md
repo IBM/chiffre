@@ -14,7 +14,7 @@ Like with `riscv-tests`, the tests are intended to be built in varieties that us
 ```
 mkdir build
 cd build
-../configure
+../configure --with-riscvtools=$HOME/repos/github.com/freechipsproject/rocket-chip/riscv-tools
 make
 ```
 

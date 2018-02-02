@@ -14,8 +14,7 @@
 package leChiffre
 
 import chisel3.util.isPow2
-import cde.{Field, Parameters}
-import uncore.tilelink.{TLKey, TLId}
+import freechips.rocketchip.config.{Field, Parameters}
 
 case object BuildChiffre extends Field[ChiffreParameters]
 

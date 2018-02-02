@@ -15,25 +15,41 @@ package leChiffre
 
 import chisel3._
 import chisel3.util._
-import rocket._
-import cde._
-import uncore.tilelink.{HasTileLinkParameters, Get, Put, GetBlock}
+import freechips.rocketchip.tile.{
+  LazyRoCC,
+  LazyRoCCModule,
+  HasCoreParameters,
+  HasL1CacheParameters}
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.tilelink.{
+  TLClientNode,
+  TLClientPortParameters,
+  TLClientParameters}
 
 import perfect.util._
 import perfect.random._
 
-class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
-    with LeChiffreH with FletcherH with HasTileLinkParameters
+class LeChiffre(implicit p: Parameters) extends LazyRoCC {
+  override lazy val module = new LeChiffreModule(this)
+  override val atlNode = TLClientNode(Seq(
+    TLClientPortParameters(Seq(TLClientParameters("LeChiffreRoCC")))))
+}
+
+class LeChiffreModule(outer: LeChiffre)(implicit p: Parameters)
+    extends LazyRoCCModule(outer)
+    with HasCoreParameters
+    with HasL1CacheParameters
+    with LeChiffreH
+    with FletcherH
+    with UniformPrintfs
     with ChiffreController {
-  override lazy val io = new RoCCInterface
+  val cacheParams = tileParams.icache.get
   override val printfSigil = "LeChiffre: "
   lazy val scanId = "main"
 
   io.busy := false.B
   io.interrupt := false.B
   io.mem.req.valid := false.B
-
-  scan.clk := false.B
 
   val funct = io.cmd.bits.inst.funct
   val do_echo             = io.cmd.fire() & funct === f_ECHO.U
@@ -44,7 +60,7 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   val s_ = Chisel.Enum(UInt(), List('WAIT,
     'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
     'RESP, 'ERROR))
-  val state = Reg(init = s_('WAIT))
+  val state = RegInit(s_('WAIT))
 
   val checksum = Reg(UInt(checksumWidth.W))
   val Seq(cycle_count, read_count, cycles_to_scan) =
@@ -68,8 +84,9 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   }
 
   when (do_cycle) {
-    state := Mux(io.cmd.bits.status.vm === 0.U,
-                 s_('CYCLE_READ), s_('CYCLE_TRANSLATE))
+    // [todo] figure out how to handle virtual memory
+    // state := { if (usingVM) s_('CYCLE_TRANSLATE) else s_('CYCLE_READ) }
+    state := s_('CYCLE_READ)
     cycle_count := 0.U
     read_count := 0.U
     cycles_to_scan := 0.U - 1.U
@@ -87,60 +104,51 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     printfError("Address translation not implemented\n")
   }
 
-  val acq = io.autl.acquire
-  val gnt = io.autl.grant
-  acq.valid := false.B
-  gnt.ready := true.B
+  val (tl_out, edgesOut) = outer.atlNode.out(0)
+
+  tl_out.a.valid := false.B
+  tl_out.d.ready := true.B
 
   // Parallel-in, Serial-out handling
-  val piso = Module(new Piso(tlDataBits)).io
-  val reqSent = Reg(init = false.B)
-  piso.p.valid := reqSent & gnt.fire() & read_count =/= 0.U
-  piso.p.bits.data := gnt.bits.data
-  piso.p.bits.count := (tlDataBits - 1).U
+  val piso = Module(new Piso(cacheDataBits)).io
+  val reqSent = RegInit(false.B)
+  piso.p.valid := reqSent & tl_out.d.fire() & read_count =/= 0.U
+  piso.p.bits.data := tl_out.d.bits.data
+  piso.p.bits.count := (cacheDataBits - 1).U
   scan.clk := piso.s.valid
   scan.out := piso.s.bits
+  fletcher.io.data.bits.cmd := k_compute.U
   when (piso.s.valid) {
     cycle_count := cycle_count + 1.U
-    fletcher.io.data.bits.cmd := k_compute.U
   }
 
   // Checksum computation
-  val fletcherWords = RegEnable(Vec(tlDataBits/(checksumWidth/2),
-    UInt((checksumWidth/2).W)).fromBits(gnt.bits.data), piso.p.valid)
-  val idx = cycle_count(log2Up(tlDataBits) - 1, log2Up(checksumWidth/2))
+  val fletcherWords = RegEnable(Vec(cacheDataBits/(checksumWidth/2),
+    UInt((checksumWidth/2).W)).fromBits(tl_out.d.bits.data), piso.p.valid)
+  val idx = cycle_count(log2Ceil(cacheDataBits) - 1, log2Ceil(checksumWidth/2))
   fletcher.io.data.bits.word := fletcherWords(idx)
   val last = cycle_count === cycles_to_scan - 1.U
   fletcher.io.data.valid := piso.s.valid && (last ||
-    cycle_count(log2Up(checksumWidth / 2) - 1, 0) ===
+    cycle_count(log2Ceil(checksumWidth / 2) - 1, 0) ===
     (checksumWidth / 2 - 1).U )
 
   // AUTL Acq/Gnt handling
-  val utlBlockOffset = tlBeatAddrBits + tlByteAddrBits
-  val utlDataPutVec = Wire(Vec(tlDataBits / xLen, UInt(xLen.W)))
   val addr_d = rs1_d
-  val addr_block = addr_d(coreMaxAddrBits - 1, utlBlockOffset)
-  val addr_beat = addr_d(utlBlockOffset - 1, tlByteAddrBits)
-  val addr_byte = addr_d(tlByteAddrBits - 1, 0)
-  val addr_word = tlDataBits compare xLen match {
-    case 1 => addr_d(tlByteAddrBits - 1, log2Up(xLen/8))
-    case 0 => 0.U
-    case -1 => throw new Exception("XLen > tlByteAddrBits (this doesn't make sense!)")
-  }
-  val get = Get(client_xact_id = 0.U,
-    addr_block = addr_block,
-    addr_beat = addr_beat,
-    addr_byte = addr_byte,
-    operand_size = MT_D,
-    alloc = false.B)
-  val getBlock = GetBlock(addr_block = addr_block, alloc = false.B)
-  acq.bits := get
+  val addr_block = addr_d(coreMaxAddrBits - 1, log2Ceil(xLen/8)) // [todo] fragile
+  tl_out.a.bits := edgesOut.Get(
+    fromSource = 0.U,
+    toAddress = addr_block << log2Ceil(xLen/8),
+    lgSize = log2Ceil(xLen/8).U)._2 // [todo] fragile
+
+  println(s"""|[info] blockOffBits: $blockOffBits
+              |[info] cacheDataBits: $cacheDataBits
+              |[info] lgCacheBlockBytes: $lgCacheBlockBytes""".stripMargin)
 
   def autlAcqGrant(ready: Bool = true.B): Bool = {
-    val done = reqSent & gnt.fire()
+    val done = reqSent & tl_out.d.fire()
     when (!reqSent & ready) {
-      acq.valid := true.B
-      reqSent := acq.fire()
+      tl_out.a.valid := true.B
+      reqSent := tl_out.a.fire()
     }
     when (done) {
       reqSent := false.B
@@ -149,24 +157,24 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
   }
 
   /* This contains no logic handling for when the {checksum, length} is
-   * not equal to one data unit (tlDataBits in length) coming back
+   * not equal to one data unit (cacheDataBits in length) coming back
    * over TileLink */
-  require((checksumWidth + cycleWidth) == tlDataBits,
-          "Header (checksum, cycles) of Chiffre Scan must be equal to tlDataBits")
+  require((checksumWidth + cycleWidth) == cacheDataBits,
+          "Header (checksum, cycles) of Chiffre Scan must be equal to cacheDataBits")
   when (state === s_('CYCLE_READ)) {
     when (autlAcqGrant(piso.p.ready)) {
       read_count := read_count + xLen.U
-      addr_d := addr_d + tlDataBytes.U
+      addr_d := addr_d + rowBytes.U
       when (read_count === 0.U) {
-        val msbs = gnt.bits.data(cycleWidth + checksumWidth - 1, cycleWidth)
-        val lsbs = gnt.bits.data(cycleWidth - 1, 0)
+        val msbs = tl_out.d.bits.data(cycleWidth + checksumWidth - 1, cycleWidth)
+        val lsbs = tl_out.d.bits.data(cycleWidth - 1, 0)
         checksum := msbs
         cycles_to_scan := lsbs
         printfInfo("Checksum: 0x%x\n", msbs)
         printfInfo("Bits to scan: 0x%x\n", lsbs)
       }
       when (read_count >= cycles_to_scan) {
-        piso.p.bits.count := tlDataBits.U - read_count + cycles_to_scan - 1.U
+        piso.p.bits.count := cacheDataBits.U - read_count + cycles_to_scan - 1.U
         state := s_('CYCLE_QUIESCE)
       }
     }
@@ -195,20 +203,21 @@ class LeChiffre(implicit p: Parameters) extends RoCC()(p) with UniformPrintfs
     printfInfo("  status 0x%x\n", io.cmd.bits.status.asUInt())
     printfInfo("   -> fs 0x%x\n", io.cmd.bits.status.fs)
     printfInfo("   -> xs 0x%x\n", io.cmd.bits.status.xs)
-    printfInfo("   -> vm 0x%x\n", io.cmd.bits.status.vm)
   }
   when (io.resp.fire()) { printfInfo("Chiffre: resp rd 0x%x, data 0x%x\n",
     io.resp.bits.rd, io.resp.bits.data) }
 
-  when (acq.fire()) {
-    printfInfo("autl acq.%d | addr 0x%x, addr_block 0x%x, addr_beat 0x%x, addr_byte 0x%x\n",
-      acq.bits.a_type, addr_d, acq.bits.addr_block, acq.bits.addr_beat,
-      acq.bits.addr_byte())
-  }
+  when (tl_out.a.fire()) {
+    printfInfo("tl_out.a fire | opcode 0x%x, param 0x%x, size 0x%x, source 0x%x, address 0x%x, mask 0x%x, data 0x%x\n",
+      tl_out.a.bits.opcode, tl_out.a.bits.param, tl_out.a.bits.size,
+      tl_out.a.bits.source, tl_out.a.bits.address, tl_out.a.bits.mask,
+      tl_out.a.bits.data) }
 
-  when (reqSent && gnt.fire()) {
-    printfDebug("autl.gnt | data 0x%x, beat 0x%x\n",
-      gnt.bits.data, gnt.bits.addr_beat) }
+  when (reqSent && tl_out.d.fire()) {
+    printfDebug("tl_out.d | opcode 0x%x, param 0x%x, size 0x%x, source 0x%x, sink 0x%x, data 0x%x, error 0x%x\n",
+      tl_out.d.bits.opcode, tl_out.d.bits.param, tl_out.d.bits.size,
+      tl_out.d.bits.source, tl_out.d.bits.sink, tl_out.d.bits.data,
+      tl_out.d.bits.error) }
 
   when (scan.clk) {
     printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, scan.out, scan.en)

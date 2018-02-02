@@ -18,8 +18,8 @@ import chisel3.util._
 import leChiffre.scan._
 
 class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
-  val difficulty = Reg(init = 0.U(lfsrWidth.W))
-  val seed = Reg(init = 1.U(lfsrWidth.W))
+  val difficulty = RegInit(0.U(lfsrWidth.W))
+  val seed = RegInit(1.U(lfsrWidth.W))
   lazy val info = LfsrInjectorInfo(1, lfsrWidth)
 
   val lfsr = Module(new perfect.random.Lfsr(lfsrWidth))
