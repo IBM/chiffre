@@ -73,13 +73,6 @@ class FaultInstrumentation(
       .foldLeft((Seq[DefModule](), Seq[Annotation]())){
         case ((m, a), (_, Modifications(_,_,mm,aa,_))) => (m ++ mm, a ++ aa) }
 
-    // mxx.foreach{ m =>
-    //   logger.info("[info] Added Module:")
-    //   logger.info(s"[info] ----------------------------------------")
-    //   logger.info(m.serialize)
-    //   logger.info(s"[info] ----------------------------------------")
-    // }
-
     val mx = state.circuit.modules map onModule(modifications)
     val cx = ToWorkingIR.run(state.circuit.copy(modules = mxx ++ mx))
 
@@ -225,13 +218,6 @@ class FaultInstrumentation(
           val mx = m.copy(
             body = Block(
               (x.defines :+ (m.body mapStmt onStmt(x.renames))) ++ x.connects))
-          // logger.info("[info] original:")
-          // logger.info(s"[info] ----------------------------------------")
-          // logger.info(m.serialize)
-          // logger.info(s"[info] ----------------------------------------")
-          // logger.info("[info] instrumented:")
-          // logger.info(mx.serialize)
-          // logger.info(s"[info] ----------------------------------------")
           mx
         case _ => m
       }
