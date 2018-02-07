@@ -186,7 +186,7 @@ class FaultInstrumentation(
                 Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
                 Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
                 Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
-                Connect(NoInfo, toExp(rename),castRhs(t,toExp(s"$defi.io.out"))),
+                Connect(NoInfo,toExp(rename),castRhs(t,toExp(s"$defi.io.out"))),
                 IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
                 IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
                 IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
