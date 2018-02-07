@@ -1,19 +1,27 @@
 prefix		:= @prefix@
 abs_top_srcdir	:= @abs_top_srcdir@
 XLEN            := @XLEN@
+RISCVTOOLS      := @RISCVTOOLS@
 ROCC            := le-chiffre
 
 .PHONY: all clean dana smoke
 
 all: dana smoke
 
+vars = \
+	abs_top_srcdir=$(abs_top_srcdir) \
+	XLEN=$(XLEN) \
+	ROCC=$(ROCC) \
+	src_dir=$(abs_top_srcdir)/$@ \
+	RISCVTOOLS=$(RISCVTOOLS)
+
 smoke:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/$@ XLEN=$(XLEN) ROCC=$(ROCC)
+	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile $(vars)
 
 dana:
 	mkdir -p $@
-	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/$@ XLEN=$(XLEN) ROCC=$(ROCC)
+	$(MAKE) -C $@ -f $(abs_top_srcdir)/$@/Makefile $(vars)
 
 clean:
 	$(MAKE) -C smoke -f $(abs_top_srcdir)/smoke/Makefile abs_top_srcdir=$(abs_top_srcdir) src_dir=$(abs_top_srcdir)/smoke/Makefile ROCC=$(ROCC) clean

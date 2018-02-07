@@ -15,51 +15,36 @@ package leChiffre
 
 import chisel3._
 import chisel3.util._
+import chisel3.core.BaseModule
 import chisel3.internal.InstanceId
 import chisel3.experimental.ChiselAnnotation
-import scala.collection.mutable
 import leChiffre.scan._
 
-trait ChiffreController {
-  self: Module =>
+trait ChiffreController extends BaseModule {
+  self: BaseModule =>
 
   /** Scan Chain Identifier used to differentiate scan chains. This must
     * be a `lazy val`. */
   def scanId: String
 
-  private def addSource(component: InstanceId, name: String): Unit = {
-    annotate(
-      ChiselAnnotation(component,
-                       classOf[_root_.firrtl.passes.wiring.WiringTransform],
-                       s"source $name"))
-  }
-
-  private def scanMaster(in: InstanceId, out: InstanceId,
-                         name: String): Unit = {
+  private def scanMaster(scan: InstanceId, name: String): Unit = {
     if (scanId == null) { // scalastyle:off
       throw new Exception(
         "Chiffre Controller 'scanId' should be a 'lazy val'") }
-    annotate(
-      ChiselAnnotation(
-        in,
-        classOf[leChiffre.passes.ScanChainTransform],
-        s"master:in:$name:"))
-    annotate(
-      ChiselAnnotation(
-        out,
-        classOf[leChiffre.passes.ScanChainTransform],
-        s"master:out:$name:"))
+    annotate(ChiselAnnotation(
+      scan,
+      classOf[leChiffre.passes.ScanChainTransform],
+      s"master:scan:$name:"))
   }
 
   val scan = Wire(new ScanIo)
+  scan.in := false.B
 
-  addSource(scan.clk, "scan_clk")
-  addSource(scan.en, "scan_en")
-  scanMaster(scan.in, scan.out, scanId)
+  scanMaster(scan, scanId)
 }
 
-trait ChiffreInjectee {
-  self: Module =>
+trait ChiffreInjectee extends BaseModule {
+  self: BaseModule =>
 
   def isFaulty[T <: inject.Injector](component: InstanceId, id: String,
                                      tpe: Class[T]): Unit = {
