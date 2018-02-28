@@ -29,13 +29,13 @@ import freechips.rocketchip.tilelink.{
 import perfect.util._
 import perfect.random._
 
-class LeChiffre(implicit p: Parameters) extends LazyRoCC {
-  override lazy val module = new LeChiffreModule(this)
+class LeChiffre(scanId: String)(implicit p: Parameters) extends LazyRoCC {
+  override lazy val module = new LeChiffreModule(this, scanId)
   override val atlNode = TLClientNode(Seq(
     TLClientPortParameters(Seq(TLClientParameters("LeChiffreRoCC")))))
 }
 
-class LeChiffreModule(outer: LeChiffre)(implicit p: Parameters)
+class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Parameters)
     extends LazyRoCCModule(outer)
     with HasCoreParameters
     with HasL1CacheParameters
@@ -45,7 +45,6 @@ class LeChiffreModule(outer: LeChiffre)(implicit p: Parameters)
     with ChiffreController {
   val cacheParams = tileParams.icache.get
   override val printfSigil = "LeChiffre: "
-  lazy val scanId = "main"
 
   io.busy := false.B
   io.interrupt := false.B

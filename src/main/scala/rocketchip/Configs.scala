@@ -28,7 +28,7 @@ class WithLeChiffre extends Config ((site, here, up) => {
       RoCCParams(
         opcodes = OpcodeSet.custom2,
         generator = (p: Parameters) =>  {
-          val leChiffre = LazyModule(new LeChiffre()(p))
+          val leChiffre = LazyModule(new LeChiffre("main")(p))
           leChiffre})
     ))
   }
