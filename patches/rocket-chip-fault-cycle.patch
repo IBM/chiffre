@@ -1,0 +1,49 @@
+diff --git a/Makefrag b/Makefrag
+index f99d199..acf8fbf 100644
+--- a/Makefrag
++++ b/Makefrag
+@@ -20,7 +20,7 @@ SBT ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -jar $(base_dir)/sbt-l
+ SHELL := /bin/bash
+ 
+ FIRRTL_JAR ?= $(base_dir)/firrtl/utils/bin/firrtl.jar
+-FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp $(FIRRTL_JAR) firrtl.Driver
++FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp $(FIRRTL_JAR):$(base_dir)/target/scala-2.11/classes:$(base_dir)/chisel3/target/scala-2.11/chisel3_2.11-3.1-SNAPSHOT.jar firrtl.Driver
+ 
+ # Build firrtl.jar and put it where chisel3 can find it.
+ $(FIRRTL_JAR): $(shell find $(base_dir)/firrtl/src/main/scala -iname "*.scala")
+diff --git a/emulator/Makefrag-verilator b/emulator/Makefrag-verilator
+index 9e39574..c5cd30c 100644
+--- a/emulator/Makefrag-verilator
++++ b/emulator/Makefrag-verilator
+@@ -14,7 +14,7 @@ $(generated_dir)/%.fir $(generated_dir)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(boot
+ 
+ %.v %.conf: %.fir $(FIRRTL_JAR)
+ 	mkdir -p $(dir $@)
+-	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --infer-rw $(MODEL) --repl-seq-mem -c:$(MODEL):-o:$*.conf -faf $*.anno
++	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --infer-rw $(MODEL) --repl-seq-mem -c:$(MODEL):-o:$*.conf -faf $*.anno --log-level Info --custom-transforms=leChiffre.passes.FaultInstrumentationTransform
+ 
+ $(generated_dir)/$(long_name).behav_srams.v : $(generated_dir)/$(long_name).conf $(VLSI_MEM_GEN)
+ 	cd $(generated_dir) && \
+diff --git a/src/main/scala/rocket/CSR.scala b/src/main/scala/rocket/CSR.scala
+index 0578a2f..1e6a0d3 100644
+--- a/src/main/scala/rocket/CSR.scala
++++ b/src/main/scala/rocket/CSR.scala
+@@ -211,7 +211,8 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
+ }
+ 
+ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Parameters) extends CoreModule()(p)
+-    with HasCoreParameters {
++    with HasCoreParameters
++    with leChiffre.ChiffreInjectee {
+   val io = new CSRFileIO
+ 
+   val reset_mstatus = Wire(init=new MStatus().fromBits(0))
+@@ -839,4 +840,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
+   }
+   def formEPC(x: UInt) = ~(~x | (if (usingCompressed) 1.U else 3.U))
+   def isaStringToMask(s: String) = s.map(x => 1 << (x - 'A')).foldLeft(0)(_|_)
++
++  isFaulty( reg_fflags, "main", classOf[leChiffre.inject.LfsrInjector32]  )
++  isFaulty( reg_cycle,  "main", classOf[leChiffre.inject.StuckAt]         )
++  isFaulty( reg_frm,    "main", classOf[leChiffre.inject.CycleInjector32] )
+ }
