@@ -21,5 +21,5 @@ lazy val root = (project in file(".")).
     )),
     name := "ScanChainConfig",
     libraryDependencies += scalaTest % Test,
-    unmanagedSourceDirectories in Compile += baseDirectory.value / "../src/main/scala/leChiffre/scan"
+    unmanagedSourceDirectories in Compile += baseDirectory.value / "../src/main/scala/chiffre/scan"
   )

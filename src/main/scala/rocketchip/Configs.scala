@@ -14,7 +14,7 @@
 package freechips.rocketchip.system
 
 import chisel3._
-import leChiffre._
+import chiffre._
 import freechips.rocketchip.config._
 import freechips.rocketchip.tile.{RoCCParams, OpcodeSet}
 import freechips.rocketchip.coreplex.RocketTilesKey

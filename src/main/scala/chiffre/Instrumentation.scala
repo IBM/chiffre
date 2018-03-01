@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package leChiffre
+package chiffre
 
 import chisel3._
 import chisel3.util._
 import chisel3.core.BaseModule
 import chisel3.internal.InstanceId
 import chisel3.experimental.ChiselAnnotation
-import leChiffre.scan._
+import chiffre.scan._
 
 trait ChiffreController extends BaseModule {
   self: BaseModule =>
@@ -33,7 +33,7 @@ trait ChiffreController extends BaseModule {
         "Chiffre Controller 'scanId' should be a 'lazy val'") }
     annotate(ChiselAnnotation(
       scan,
-      classOf[leChiffre.passes.ScanChainTransform],
+      classOf[chiffre.passes.ScanChainTransform],
       s"master:scan:$name:"))
   }
 

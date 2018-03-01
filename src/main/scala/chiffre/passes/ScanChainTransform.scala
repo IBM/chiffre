@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package leChiffre.passes
+package chiffre.passes
 
 import firrtl._
 import firrtl.ir._
@@ -20,7 +20,7 @@ import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
 import java.io.FileWriter
-import leChiffre.scan._
+import chiffre.scan._
 import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
 

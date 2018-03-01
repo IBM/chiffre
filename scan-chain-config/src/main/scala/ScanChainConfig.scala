@@ -3,7 +3,7 @@ import scopt._
 import java.io.File
 import java.io.FileOutputStream
 import scala.io.Source
-import leChiffre.scan._
+import chiffre.scan._
 
 import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
@@ -88,7 +88,7 @@ class ScanChainUtils(implicit opt: Arguments) {
         s"""|${indent}${name}:
             |${indent}  length: ${getLength(c)}b
             |${indent}  chain:
-            |${c.map(_.serialize(indent + "    ")).mkString("\n")}
+            |${c.map(_.serialize(indent + "  ")).mkString("\n")}
             |${indent}  raw: ${bitString(c)}"""
           .stripMargin}
       .mkString("\n")

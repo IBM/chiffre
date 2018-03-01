@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package leChiffre.passes
+package chiffre.passes
 
 import firrtl._
 import firrtl.ir._
@@ -169,7 +169,7 @@ class FaultInstrumentation(
                               ModuleName(m.name, CircuitName(c.main))) )
 
             val wt = classOf[firrtl.passes.wiring.WiringTransform]
-            val st = classOf[leChiffre.passes.ScanChainTransform]
+            val st = classOf[chiffre.passes.ScanChainTransform]
 
             val x = mods(m.name)
             mods(m.name) = x.copy(

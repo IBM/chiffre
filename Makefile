@@ -13,7 +13,7 @@ all: $(base_dir)/utils/bin/scan-chain-config.jar
 src_dir=$(base_dir)/src/main/scala
 
 bin_deps= \
-	$(src_dir)/leChiffre/scan/scan.scala \
+	$(src_dir)/chiffre/scan/scan.scala \
 	$(base_dir)/scan-chain-config/src/main/scala/ScanChainConfig.scala
 $(base_dir)/utils/bin/scan-chain-config.jar: $(bin_deps)
 	(cd $(base_dir)/scan-chain-config && sbt assembly)

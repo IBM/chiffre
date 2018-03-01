@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package leChiffre
+package chiffre
 
 package object scan {
   /* A configurable region of the scan chain */
@@ -92,7 +92,7 @@ package object scan {
   /* The name of a signal and it's associated fault injector */
   case class FaultyComponent(name: String, injector: InjectorInfo) {
     def serialize(indent: String): String =
-      s"""|${indent}$name:
+      s"""|${indent}- $name:
           |${injector.serialize(indent + "  ")}"""
         .stripMargin
 

@@ -11,15 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package leChiffre.inject
+package chiffre.inject
 
 import chisel3._
 import chisel3.util._
 import chisel3.experimental.ChiselAnnotation
-import leChiffre._
-import leChiffre.inject._
-import leChiffre.passes._
-import leChiffre.scan._
+import chiffre._
+import chiffre.passes._
+import chiffre.scan._
 import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
 
