@@ -16,6 +16,7 @@ package chiffre.passes
 import firrtl._
 import firrtl.ir._
 import firrtl.passes._
+import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
 import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
@@ -54,56 +55,28 @@ case class ScanChainInfo(
   }
 }
 
-object ScanChainAnnotation {
-  def apply(comp: ComponentName, ctrl: String, dir: String, id: String,
-            key: Option[ComponentName]): Annotation =
-    Annotation(
-      comp, classOf[ScanChainTransform],
-      s"""$ctrl:$dir:$id:${if (key.isEmpty) "" else key.get.serialize}""")
-  val re = raw"(master|slave):(.+):(.+):((.+?)\.(.+?)\.(.+?))?$$".r
-  def unapply(a: Annotation): Option[(ComponentName, String, String, String,
-                                      Option[ComponentName])] = a match {
-    case Annotation(ComponentName(n, m), _, re(ctrl, dir, id, key, a,b,c)) =>
-      val k =
-        if (key == null) { // scalastyle:off
-          None
-        } else {
-          ComponentName(c, ModuleName(b, CircuitName(a))) match {
-            case x: ComponentName => Some(x)
-            case _ => None
-          }
-        }
-      Some((ComponentName(n, m), ctrl, dir, id, k))
-    case _ => None
-  }
+case class ScanChainAnnotation(
+  target: ComponentName,
+  ctrl: String,
+  dir: String,
+  id: String,
+  key: Option[ComponentName]) extends SingleTargetAnnotation[ComponentName] {
+  def duplicate(x: ComponentName) = this.copy(target = x)
 }
 
-object ScanChainInjector {
-  def apply(comp: ComponentName, instanceName: String,
-            moduleName: String): Annotation =
-    Annotation(comp, classOf[ScanChainTransform],
-               s"injector:$instanceName:$moduleName")
-  val re = raw"injector:(.+):(.+):(.+)".r
-  def unapply(a: Annotation):
-      Option[(ComponentName, String, String, String)] = a match {
-    case Annotation(ComponentName(n, m), _, re(id, instanceName, moduleName)) =>
-      Some((ComponentName(n, m), id, instanceName, moduleName))
-    case _ => None
-  }
+case class ScanChainInjectorAnnotation(
+  target: ComponentName,
+  id: String,
+  instanceName: String,
+  moduleName: String) extends SingleTargetAnnotation[ComponentName] {
+  def duplicate(x: ComponentName) = this.copy(target = x)
 }
 
-object ScanChainDescription {
-  def apply(mod: ModuleName, id: String, d: InjectorInfo): Annotation =
-    Annotation(mod, classOf[ScanChainTransform],
-               s"description:$id:" + (d.toYaml.prettyPrint).mkString )
-
-  val re = raw"(?s)description:(.+?):(.+)".r
-  def unapply(a: Annotation):
-      Option[(ModuleName, String, InjectorInfo)] = a match {
-    case Annotation(ModuleName(m, c), _, re(id, raw)) =>
-      Some((ModuleName(m, c), id, raw.parseYaml.convertTo[InjectorInfo]))
-    case _ => None
-  }
+case class ScanChainDescriptionAnnotation(
+  target: ModuleName,
+  id: String,
+  d: InjectorInfo) extends SingleTargetAnnotation[ModuleName] {
+  def duplicate(x: ModuleName) = this.copy(target = x)
 }
 
 class ScanChainTransform extends Transform {
@@ -125,19 +98,19 @@ class ScanChainTransform extends Transform {
     }
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
-        case ("slave", "in") => s(id).copy(slaveIn = s(id).slaveIn ++
-                                             Map(key.get -> comp))
-        case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++
-                                              Map(key.get -> comp))
+        case ("slave", "in") =>
+          s(id).copy(slaveIn = s(id).slaveIn ++ Map(key.get -> comp))
+        case ("slave", "out") =>
+          s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
         case _ => s(id)
       }
-      case ScanChainInjector(comp, id, inst, mod) => s(id) = s(id)
+      case ScanChainInjectorAnnotation(comp, id, inst, mod) => s(id) = s(id)
           .copy(injectors = s(id).injectors ++
                   Map(comp -> ModuleName(mod, comp.module.circuit)))
       case _ =>
     }
     annos.foreach {
-      case ScanChainDescription(mod, id, d) => {
+      case ScanChainDescriptionAnnotation(mod, id, d) => {
         s(id) = s(id)
           .copy(description = s(id).description ++
                   Map(ModuleName(mod.name, CircuitName(circuit.main)) -> d))
@@ -147,70 +120,68 @@ class ScanChainTransform extends Transform {
     s.toMap
   }
 
-  def execute(state: CircuitState): CircuitState = getMyAnnotations(state) match {
-    case Nil => state
-    case p =>
-      val s = analyze(state.circuit, p)
+  def execute(state: CircuitState): CircuitState = {
+    val myAnnos = state.annotations.collect {
+      case a @ ( _: ScanChainAnnotation |
+                  _: ScanChainInjectorAnnotation |
+                  _: ScanChainDescriptionAnnotation) => a }
+    myAnnos match {
+      case Nil => state
+      case p =>
+        val s = analyze(state.circuit, p)
 
-      s.foreach{ case (k, v) => logger.info(
-                  s"""|[info] scan chain:
-                      |[info]   name: ${k}
-                      |${v.serialize("[info]   ")}""".stripMargin) }
+        s.foreach{ case (k, v) => logger.info(
+                    s"""|[info] scan chain:
+                        |[info]   name: ${k}
+                        |${v.serialize("[info]   ")}""".stripMargin) }
 
-      // [todo] Order the scan chain based on distance
+        // [todo] Order the scan chain based on distance
 
-      // [todo] Set the emitted directory and file name
-      val scanFile = "scan-chain.yaml"
-      val w = new FileWriter(scanFile)
-      val sc = s.map{ case(k, v) => v.toScanChain(k) }
-        .reduce(_ ++ _)
+        // [todo] Set the emitted directory and file name
+        val scanFile = "scan-chain.yaml"
+        val w = new FileWriter(scanFile)
+        val sc = s.map{ case(k, v) => v.toScanChain(k) }
+          .reduce(_ ++ _)
 
-      import ScanChainProtocol._
-      import net.jcazevedo.moultingyaml._
+        import ScanChainProtocol._
+        import net.jcazevedo.moultingyaml._
 
-      w.write(sc.toYaml.prettyPrint)
+        w.write(sc.toYaml.prettyPrint)
 
-      w.close()
+        w.close()
 
-      val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
-        val masterIn = v.masterScan.copy(name=v.masterScan.name + ".in")
-        val masterOut = v.masterScan.copy(name=v.masterScan.name + ".out")
-        val masterClk = v.masterScan.copy(name=v.masterScan.name + ".clk")
-        val masterEn = v.masterScan.copy(name=v.masterScan.name + ".en")
+        val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
+          val masterIn = v.masterScan.copy(name=v.masterScan.name + ".in")
+          val masterOut = v.masterScan.copy(name=v.masterScan.name + ".out")
+          val masterClk = v.masterScan.copy(name=v.masterScan.name + ".clk")
+          val masterEn = v.masterScan.copy(name=v.masterScan.name + ".en")
 
-        val masterAnnotations = Seq(
-          Annotation(
-            masterClk,
-            classOf[firrtl.passes.wiring.WiringTransform],
-            s"source scan_clk"),
-          Annotation(
-            masterEn,
-            classOf[firrtl.passes.wiring.WiringTransform],
-            s"source scan_en"))
+          val masterAnnotations = Seq(
+            SourceAnnotation(masterClk, "scan_clk"),
+            SourceAnnotation(masterEn, "scan_en"))
 
-        // [todo] This is not deterministic
-        val chain: Seq[ComponentName] = (masterOut +:
-          v.injectors.flatMap{ case (k, _) =>
-            Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+ masterIn  )
+          // [todo] This is not deterministic
+          val chain: Seq[ComponentName] = (
+            masterOut +:
+              v.injectors.flatMap{ case (k, _) =>
+                Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+ masterIn  )
 
-        val annotations = chain
-          .grouped(2).zipWithIndex
-          .flatMap{ case (Seq(l, r), i) =>
-            Seq(Annotation(l,
-                           classOf[firrtl.passes.wiring.WiringTransform],
-                           s"source scan_${name}_$i"),
-                Annotation(r,
-                           classOf[firrtl.passes.wiring.WiringTransform],
-                           s"sink scan_${name}_$i") )}
-        a ++ masterAnnotations ++ annotations
-      }
+          val annotations = chain
+            .grouped(2).zipWithIndex
+            .flatMap{ case (Seq(l, r), i) =>
+              Seq(SourceAnnotation(l, s"scan_${name}_$i"),
+                  SinkAnnotation(r, s"scan_${name}_$i")) }
 
-      val sx = state.copy(
-        annotations = Some(
-          AnnotationMap(state.annotations.get.annotations ++ ax)))
+          a ++ masterAnnotations ++ annotations
+        }
 
-      val cx = transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
+        ax.foreach(x => logger.info(s"[info] ${x.serialize}"))
 
-      cx
+        val sx = state.copy(
+          annotations = AnnotationSeq(state.annotations.toSeq ++ ax))
+
+        transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
+          .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
+    }
   }
 }
