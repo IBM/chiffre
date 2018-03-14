@@ -59,12 +59,8 @@ class FaultInstrumentationTransform extends Transform {
           v.foreach( a =>
             logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
 
-        val out = transforms(comp.toMap).foldLeft(s){ (old, x) => x.runTransform(old) }
+        transforms(comp.toMap).foldLeft(state){ (old, x) => x.runTransform(old) }
           .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
-
-        logger.info(out.circuit.serialize)
-
-        out
     }
   }
 }

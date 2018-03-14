@@ -175,8 +175,6 @@ class ScanChainTransform extends Transform {
           a ++ masterAnnotations ++ annotations
         }
 
-        ax.foreach(x => logger.info(s"[info] ${x.serialize}"))
-
         val sx = state.copy(
           annotations = AnnotationSeq(state.annotations.toSeq ++ ax))
 

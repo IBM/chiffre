@@ -1,5 +1,5 @@
 diff --git a/Makefrag b/Makefrag
-index f99d199..fcc911f 100644
+index f99d199..39b292f 100644
 --- a/Makefrag
 +++ b/Makefrag
 @@ -20,7 +20,7 @@ SBT ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -jar $(base_dir)/sbt-l
@@ -7,7 +7,7 @@ index f99d199..fcc911f 100644
  
  FIRRTL_JAR ?= $(base_dir)/firrtl/utils/bin/firrtl.jar
 -FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp $(FIRRTL_JAR) firrtl.Driver
-+FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp $(FIRRTL_JAR):$(base_dir)/target/scala-2.11/classes:$(base_dir)/chisel3/target/scala-2.11/chisel3_2.11-3.1-SNAPSHOT.jar firrtl.Driver --custom-transforms=chiffre.passes.FaultInstrumentationTransform -ll Debug
++FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp $(FIRRTL_JAR):$(base_dir)/target/scala-2.11/classes:$(base_dir)/chisel3/target/scala-2.11/chisel3_2.11-3.1-SNAPSHOT.jar firrtl.Driver --custom-transforms=chiffre.passes.FaultInstrumentationTransform -ll Info
  
  # Build firrtl.jar and put it where chisel3 can find it.
  $(FIRRTL_JAR): $(shell find $(base_dir)/firrtl/src/main/scala -iname "*.scala")
