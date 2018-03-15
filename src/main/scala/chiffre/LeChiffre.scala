@@ -56,10 +56,10 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
   val do_enable           = io.cmd.fire() & funct === f_ENABLE.U
   val do_unknown          = io.cmd.fire() & funct  >  f_ENABLE.U
 
-  val s_ = Chisel.Enum(UInt(), List('WAIT,
-    'CYCLE_TRANSLATE, 'CYCLE_READ, 'CYCLE_QUIESCE,
-    'RESP, 'ERROR))
-  val state = RegInit(s_('WAIT))
+  val Seq(s_WAIT, s_CYCLE_TRANSLATE, s_CYCLE_READ, s_CYCLE_QUIESCE, s_RESP,
+          s_ERROR) = Enum(6)
+
+  val state = RegInit(s_WAIT)
 
   val checksum = Reg(UInt(checksumWidth.W))
   val Seq(cycle_count, read_count, cycles_to_scan) =
@@ -69,23 +69,23 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
 
   val fletcher = Module(new Fletcher(checksumWidth))
 
-  io.cmd.ready := state === s_('WAIT)
+  io.cmd.ready := state === s_WAIT
 
-  when (io.cmd.fire() && state === s_('WAIT)) {
+  when (io.cmd.fire() && state === s_WAIT) {
     rd_d := io.cmd.bits.inst.rd
     rs1_d := io.cmd.bits.rs1
     rs2_d := io.cmd.bits.rs2
   }
 
   when (do_echo) {
-    state := s_('RESP)
+    state := s_RESP
     resp_d := io.cmd.bits.rs1
   }
 
   when (do_cycle) {
     // [todo] figure out how to handle virtual memory
-    // state := { if (usingVM) s_('CYCLE_TRANSLATE) else s_('CYCLE_READ) }
-    state := s_('CYCLE_READ)
+    // state := { if (usingVM) s_CYCLE_TRANSLATE else s_CYCLE_READ }
+    state := s_CYCLE_READ
     cycle_count := 0.U
     read_count := 0.U
     cycles_to_scan := 0.U - 1.U
@@ -94,12 +94,12 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
 
   scan.en := do_enable
   when (do_enable) {
-    state := s_('RESP)
+    state := s_RESP
     resp_d := 0.U
   }
 
-  when (state === s_('CYCLE_TRANSLATE)) {
-    state := s_('ERROR)
+  when (state === s_CYCLE_TRANSLATE) {
+    state := s_ERROR
     printfError("Address translation not implemented\n")
   }
 
@@ -139,9 +139,10 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
     toAddress = addr_block << log2Ceil(xLen/8),
     lgSize = log2Ceil(xLen/8).U)._2 // [todo] fragile
 
-  println(s"""|[info] blockOffBits: $blockOffBits
-              |[info] cacheDataBits: $cacheDataBits
-              |[info] lgCacheBlockBytes: $lgCacheBlockBytes""".stripMargin)
+  /* [todo] Remove this once this is better validated */
+  // println(s"""|[info] blockOffBits: $blockOffBits
+  //             |[info] cacheDataBits: $cacheDataBits
+  //             |[info] lgCacheBlockBytes: $lgCacheBlockBytes""".stripMargin)
 
   def autlAcqGrant(ready: Bool = true.B): Bool = {
     val done = reqSent & tl_out.d.fire()
@@ -160,7 +161,7 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
    * over TileLink */
   require((checksumWidth + cycleWidth) == cacheDataBits,
           "Header (checksum, cycles) of Chiffre Scan must be equal to cacheDataBits")
-  when (state === s_('CYCLE_READ)) {
+  when (state === s_CYCLE_READ) {
     when (autlAcqGrant(piso.p.ready)) {
       read_count := read_count + xLen.U
       addr_d := addr_d + rowBytes.U
@@ -174,27 +175,27 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
       }
       when (read_count >= cycles_to_scan) {
         piso.p.bits.count := cacheDataBits.U - read_count + cycles_to_scan - 1.U
-        state := s_('CYCLE_QUIESCE)
+        state := s_CYCLE_QUIESCE
       }
     }
   }
 
-  when (state === s_('CYCLE_QUIESCE)) {
-    when (piso.p.ready) { state := s_('RESP) }
+  when (state === s_CYCLE_QUIESCE) {
+    when (piso.p.ready) { state := s_RESP }
     resp_d := checksum =/= fletcher.io.checksum
   }
 
-  io.resp.valid := state === s_('RESP)
-  when (state === s_('RESP)) {
+  io.resp.valid := state === s_RESP
+  when (state === s_RESP) {
     io.resp.bits.data := resp_d
     io.resp.bits.rd := rd_d
-    state := s_('WAIT)
+    state := s_WAIT
 
     fletcher.io.data.valid := true.B
     fletcher.io.data.bits.cmd := k_reset.U
   }
 
-  when (state === s_('ERROR)) {
+  when (state === s_ERROR) {
   }
 
   when (io.cmd.fire()) { printfInfo("cmd 0x%x, rs1 0x%x, rs2 0x%x\n",
@@ -223,6 +224,6 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
   }
 
   // Catch all error states
-  when (do_unknown) { state := s_('ERROR) }
-  assert(RegNext(state) =/= s_('ERROR), "[ERROR] LeChiffre: Hit error state\n")
+  when (do_unknown) { state := s_ERROR }
+  assert(RegNext(state) =/= s_ERROR, "[ERROR] LeChiffre: Hit error state\n")
 }
