@@ -2,8 +2,8 @@
 
 This provides a framework for automatically instrumenting a hardware design with run-time configurable fault injectors.
 This relies on three major components:
-  * A [Chisel](https://github.com/freechipsproject/chisel3) library that emit _annotations_ marking specific circuit components as fault injectable
-  * New [FIRRTL](https://github.com/freechipsproject/firrtl) passes that instrument what is indicated by the annotations
+  * A [Chisel](https://github.com/freechipsproject/chisel3) library that emits _annotations_ marking specific circuit components as fault injectable
+  * New [FIRRTL](https://github.com/freechipsproject/firrtl) passes that instrument the circuit components with run-time configurable fault injectors
   * A utility for configuring fault injectors at run time
 
 ### Examples
@@ -40,7 +40,7 @@ class MyModule extends Module with ChiffreInjectee {
 In __Rocket-Chip Assisted Injection__, the fault controller is a provided Rocket Custom Coprocessor (RoCC) called [`LeChiffre`](src/main/scala/chiffre/LeChiffre.scala).
 This can then be used to orchestrate fault injection experiments in external components or inside Rocket itself.
 We provide an example [patch](patches/rocket-chip-fault-cycle.patch) that makes certain control and status registers (CSRs) in rocket fault injectable and a bare metal test program that makes sure this fault injection is working.
-You can run this with the following:
+You can build an emulator with the correct configuration using the following (note: this will clone the `chiffre` repository inside of your Rocket Chip clone directory):
 
 ``` bash
 git clone https://github.com/freechipsproject/rocket-chip $ROCKETCHIP_DIR
@@ -51,4 +51,4 @@ cd emulator
 make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS=chiffre
 ```
 
-You can then run the test provided by [chiffre/tests](chiffre/tests) (instructions provided in that directory).
+You can then run the test provided by [chiffre/tests](tests) (instructions provided in that directory).
