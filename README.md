@@ -1,3 +1,54 @@
 ## Chained Hierarchical Injection for Fault Resiliency Evaluation (Chiffre)
 
-This early release demonstrates the use of [Chisel](https://github.com/freechipsproject/chisel3) and [Firrtl](https://github.com/freechipsproject/firrtl) to automatically instrument specific circuits with fault injection logic.
+This provides a framework for automatically instrumenting a hardware design with run-time configurable fault injectors.
+This relies on three major components:
+  * A [Chisel](https://github.com/freechipsproject/chisel3) library that emit _annotations_ marking specific circuit components as fault injectable
+  * New [FIRRTL](https://github.com/freechipsproject/firrtl) passes that instrument what is indicated by the annotations
+  * A utility for configuring fault injectors at run time
+
+### Examples
+
+There are currently two major usage classes: standalone injection and Rocket Chip-assisted injection.
+
+In __Standalone Injection__ you define and implement a fault injection controller, `MyController`, that manages a specific scan chain.
+You then annotate specific circuit components with the `isFaulty` method indicating which scan chain they belong to and what type of fault injector to use.
+An overall example of this is shown below.
+
+``` scala
+import chisel3._
+import chiffre._
+
+/* A controller for injectors on the "main" scan chain */
+class MyController extends Module with ChiffreController {
+  val io = IO(new Bundle{})
+  lazy val scanId = "main"
+  // MyController body with scan chain logic not shown
+}
+
+/* A module with faulty components */
+class MyModule extends Module with ChiffreInjectee {
+  val io = IO(new Bundle{})
+  val x = Reg(UInt(1.W))
+  val y = Reg(UInt(4.W))
+  val z = Reg(UInt(8.W))
+  isFaulty(x, "main", classOf[inject.LfsrInjector32])
+  isFaulty(y, "main", classOf[inject.StuckAt])
+  isFaulty(z, "main", classOf[inject.CycleInjector32])
+}
+```
+
+In __Rocket-Chip Assisted Injection__, the fault controller is a provided Rocket Custom Coprocessor (RoCC) called [`LeChiffre`](src/main/scala/chiffre/LeChiffre.scala).
+This can then be used to orchestrate fault injection experiments in external components or inside Rocket itself.
+We provide an example [patch](patches/rocket-chip-fault-cycle.patch) that makes certain control and status registers (CSRs) in rocket fault injectable and a bare metal test program that makes sure this fault injection is working.
+You can run this with the following:
+
+``` bash
+git clone https://github.com/freechipsproject/rocket-chip $ROCKETCHIP_DIR
+cd $ROCKETCHIP_DIR
+git clone https://github.com/ibm/chiffre chiffre
+git apply chiffre/patches/rocket-chip-fault-cycle.patch
+cd emulator
+make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS=chiffre
+```
+
+You can then run the test provided by [chiffre/tests](chiffre/tests) (instructions provided in that directory).
