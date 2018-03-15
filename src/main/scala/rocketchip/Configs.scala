@@ -17,7 +17,7 @@ import chisel3._
 import chiffre._
 import freechips.rocketchip.config._
 import freechips.rocketchip.tile.{RoCCParams, OpcodeSet}
-import freechips.rocketchip.coreplex.RocketTilesKey
+import freechips.rocketchip.subsystem.RocketTilesKey
 import freechips.rocketchip.system.DefaultConfig
 import freechips.rocketchip.diplomacy.LazyModule
 

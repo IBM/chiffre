@@ -15,7 +15,7 @@ package chiffre.inject
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.ChiselAnnotation
+import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
 import chiffre._
 import chiffre.passes._
 import chiffre.scan._
@@ -23,7 +23,7 @@ import ScanChainProtocol._
 import net.jcazevedo.moultingyaml._
 
 /** An injector interface */
-sealed class InjectorIo(n: Int) extends Bundle {
+sealed class InjectorIo(val n: Int) extends Bundle {
   val scan = new ScanIo
   val in = Input(UInt(n.W))
   val out = Output(UInt(n.W))
@@ -49,11 +49,12 @@ abstract class Injector(n: Int, id: String) extends InjectorLike(n, id) {
   if (info == null) { // scalastyle:off
     throw new FaultInstrumentationException(
       "Children of Injector must use a `lazy val` for abstract member `info`") }
-  annotate(
-    ChiselAnnotation(
-      this,
-      classOf[ScanChainTransform],
-      s"""description:$id:${info.toYaml.prettyPrint}"""))
+  experimental.annotate {
+    val x = this
+    new ChiselAnnotation with RunFirrtlTransform {
+      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, id, info)
+      def transformClass = classOf[ScanChainTransform]
+    }}
 }
 
 /** A one-bit injector primmitive */

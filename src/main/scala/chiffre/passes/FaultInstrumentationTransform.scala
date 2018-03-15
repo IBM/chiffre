@@ -18,19 +18,9 @@ import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
 
-object FaultInjectionAnnotation {
-  def apply(comp: ComponentName, id: String, injector: String): Annotation = {
-    Annotation(comp, classOf[FaultInstrumentationTransform],
-               s"$injector:$id:$injector")
-  }
-
-  val matcher = raw"injector:(.+?):(.+)".r
-  def unapply(a: Annotation): Option[(ComponentName, String, String)] =
-    a match {
-      case Annotation(ComponentName(n, m), _, matcher(id, injector)) =>
-        Some(ComponentName(n, m), id, injector)
-      case _ => None
-    }
+case class FaultInjectionAnnotation(target: ComponentName, id: String, injector: String) extends
+    SingleTargetAnnotation[ComponentName] {
+  def duplicate(x: ComponentName) = this.copy(target = x)
 }
 
 class FaultInstrumentationTransform extends Transform {
@@ -39,33 +29,38 @@ class FaultInstrumentationTransform extends Transform {
   def transforms(compMap: Map[String, Seq[(ComponentName, String, String)]]):
       Seq[Transform] = Seq(
     new FaultInstrumentation(compMap),
-        ToWorkingIR,
-        InferTypes,
-        Uniquify,
-        ExpandWhens,
-        CheckInitialization,
-        InferTypes,
-        ResolveKinds,
-        ResolveGenders,
-        new ScanChainTransform
-  )
-  def execute(s: CircuitState): CircuitState = getMyAnnotations(s) match {
-    case Nil => s
-    case p =>
-      val orig = mutable.HashMap[String, Seq[(Int, ComponentName)]]()
-      val conn = mutable.HashMap[String, Map[Int, ComponentName]]()
-      val repl = mutable.HashMap[String, Map[Int, ComponentName]]()
-      val comp = mutable.HashMap[String, Seq[(ComponentName, String, String)]]()
-      p.foreach {
-        case FaultInjectionAnnotation(c, i, j) => comp(c.module.name) =
-          comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, j)
-        case _ => throw new
-            FaultInstrumentationException("Unknown fault annotation type")}
+    /* After FaultInstrumentation, the inline compilation needs to be cleaned
+     * up. this massive list is what is helping with that. Assumedly, this can be done better if we can directly get at the WIR from the inline compilation and  */
+    ToWorkingIR,
+    InferTypes,
+    Uniquify,
+    ExpandWhens,
+    CheckInitialization,
+    InferTypes,
+    ResolveKinds,
+    ResolveGenders,
+    CheckTypes,
+    new ScanChainTransform )
+  def execute(state: CircuitState): CircuitState = {
+    val myAnnos = state.annotations.collect { case a: FaultInjectionAnnotation => a }
+    myAnnos match {
+      case Nil => state
+      case p =>
+        val orig = mutable.HashMap[String, Seq[(Int, ComponentName)]]()
+        val conn = mutable.HashMap[String, Map[Int, ComponentName]]()
+        val repl = mutable.HashMap[String, Map[Int, ComponentName]]()
+        val comp = mutable.HashMap[String, Seq[(ComponentName, String, String)]]()
+        p.foreach {
+          case FaultInjectionAnnotation(c, i, j) => comp(c.module.name) =
+            comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, j) }
 
-      comp.foreach{ case (k, v) =>
-        logger.info(s"[info] $k")
-        v.foreach( a =>
-          logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
-      transforms(comp.toMap).foldLeft(s){ (old, x) => x.runTransform(old) }
+        comp.foreach{ case (k, v) =>
+          logger.info(s"[info] $k")
+          v.foreach( a =>
+            logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
+
+        transforms(comp.toMap).foldLeft(state){ (old, x) => x.runTransform(old) }
+          .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
+    }
   }
 }

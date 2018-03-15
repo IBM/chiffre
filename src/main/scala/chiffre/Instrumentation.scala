@@ -17,7 +17,9 @@ import chisel3._
 import chisel3.util._
 import chisel3.core.BaseModule
 import chisel3.internal.InstanceId
-import chisel3.experimental.ChiselAnnotation
+import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform}
+import chiffre.passes.{ScanChainAnnotation, FaultInjectionAnnotation,
+  ScanChainTransform, FaultInstrumentationTransform}
 import chiffre.scan._
 
 trait ChiffreController extends BaseModule {
@@ -27,14 +29,18 @@ trait ChiffreController extends BaseModule {
     * be a `lazy val`. */
   def scanId: String
 
-  private def scanMaster(scan: InstanceId, name: String): Unit = {
+  private def scanMaster(scan: Data, name: String): Unit = {
     if (scanId == null) { // scalastyle:off
       throw new Exception(
         "Chiffre Controller 'scanId' should be a 'lazy val'") }
-    annotate(ChiselAnnotation(
-      scan,
-      classOf[chiffre.passes.ScanChainTransform],
-      s"master:scan:$name:"))
+    annotate(
+      new ChiselAnnotation with RunFirrtlTransform {
+        def toFirrtl = ScanChainAnnotation(
+          scan.toNamed,
+          "master", "scan", name, None)
+        def transformClass = classOf[ScanChainTransform]
+      }
+    )
   }
 
   val scan = Wire(new ScanIo)
@@ -50,9 +56,11 @@ trait ChiffreInjectee extends BaseModule {
                                      tpe: Class[T]): Unit = {
     component match {
       case c: Bits =>
-        annotate(ChiselAnnotation(c,
-          classOf[passes.FaultInstrumentationTransform],
-          s"injector:$id:${tpe.getName}"))
+        annotate(
+          new ChiselAnnotation with RunFirrtlTransform {
+            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, tpe.getName)
+            def transformClass = classOf[FaultInstrumentationTransform]
+          })
       case c => throw new Exception(s"Type not implemented for: $c")
     }
   }

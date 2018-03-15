@@ -16,6 +16,7 @@ package chiffre.passes
 import firrtl._
 import firrtl.ir._
 import firrtl.passes._
+import firrtl.passes.wiring.SinkAnnotation
 import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
@@ -76,11 +77,9 @@ class FaultInstrumentation(
     val mx = state.circuit.modules map onModule(modifications)
     val cx = ToWorkingIR.run(state.circuit.copy(modules = mxx ++ mx))
 
-    val inAnno = state.annotations
-      .getOrElse(AnnotationMap(Seq.empty))
-      .annotations
+    val inAnno: Seq[Annotation] = state.annotations.toSeq
     state.copy(circuit = cx,
-               annotations = Some(AnnotationMap(inAnno ++ ax)))
+               annotations = AnnotationSeq(inAnno ++ ax))
   }
 
   private def inlineCompile(name: String, width: Int, id: String,
@@ -103,11 +102,12 @@ class FaultInstrumentation(
           runFirrtlCompiler = false
         )
       }
-    val (chirrtl, inlineAnnos) =  chisel3.Driver
+    val (chirrtl: Circuit,
+         inlineAnnos: AnnotationSeq) =  chisel3.Driver
       .execute(options, gen) match {
         case chisel3.ChiselExecutionSuccess(
           Some(chisel3.internal.firrtl.Circuit(_,_,annos)),ast,_) =>
-          (Parser.parse(ast), annos)
+          (Parser.parse(ast), AnnotationSeq(annos.map(_.toFirrtl)))
         case chisel3.ChiselExecutionFailure(m) =>
           throw new FaultInstrumentationException(
             s"Chisel inline compilation failed with '$m'")
@@ -123,7 +123,7 @@ class FaultInstrumentation(
     CircuitState(
       circuit = midFirrtl,
       form = MidForm,
-      annotations = Some(AnnotationMap(inlineAnnos)))
+      annotations = AnnotationSeq(inlineAnnos))
   }
 
   private def analyze(c: Circuit): Map[String, Modifications] = {
@@ -158,7 +158,7 @@ class FaultInstrumentation(
               (cmods(injector).circuit,
                cmods(injector).circuit.modules,
                if (cmods(injector).annotations.isEmpty) { Seq.empty }
-               else { cmods(injector).annotations.get.annotations   } )
+               else { cmods(injector).annotations.toSeq   } )
             }
             val defi = moduleNamespace.newName(subcir.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
@@ -186,11 +186,11 @@ class FaultInstrumentation(
               ),
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
-                Annotation(scanEn,  wt,  "sink scan_en"                      ),
-                Annotation(scanClk, wt,  "sink scan_clk"                     ),
-                Annotation(comp,    st, s"injector:$id:$defi:${subcir.main}" ),
-                Annotation(scanIn,  st, s"slave:in:$id:${comp.serialize}"    ),
-                Annotation(scanOut, st, s"slave:out:$id:${comp.serialize}"   )
+                SinkAnnotation(scanEn, "scan_en"),
+                SinkAnnotation(scanClk, "scan_clk"),
+                ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
+                ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
+                ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),
               renames = x.renames ++ Map(comp.name -> rename)
             )
