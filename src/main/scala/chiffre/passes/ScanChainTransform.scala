@@ -17,13 +17,12 @@ import firrtl._
 import firrtl.ir._
 import firrtl.passes._
 import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
-import firrtl.annotations._
+import firrtl.annotations.{ComponentName, ModuleName, CircuitName,
+  SingleTargetAnnotation, Annotation}
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
 import java.io.FileWriter
 import chiffre.scan._
-import ScanChainProtocol._
-import net.jcazevedo.moultingyaml._
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
@@ -138,17 +137,12 @@ class ScanChainTransform extends Transform {
         // [todo] Order the scan chain based on distance
 
         // [todo] Set the emitted directory and file name
-        val scanFile = "scan-chain.yaml"
-        val w = new FileWriter(scanFile)
         val sc = s.map{ case(k, v) => v.toScanChain(k) }
           .reduce(_ ++ _)
 
-        import ScanChainProtocol._
-        import net.jcazevedo.moultingyaml._
-
-        w.write(sc.toYaml.prettyPrint)
-
-        w.close()
+        val jsonFile = new FileWriter("scan-chain.json")
+        jsonFile.write(chiffre.JsonProtocol.serialize(sc))
+        jsonFile.close()
 
         val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
           val masterIn = v.masterScan.copy(name=v.masterScan.name + ".in")

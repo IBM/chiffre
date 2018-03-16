@@ -4,9 +4,7 @@ import java.io.File
 import java.io.FileOutputStream
 import scala.io.Source
 import chiffre.scan._
-
-import ScanChainProtocol._
-import net.jcazevedo.moultingyaml._
+import chiffre.JsonProtocol
 
 case class ScanChainException(msg: String) extends Exception(msg)
 
@@ -172,10 +170,8 @@ object Main extends App {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils
-      val chains = Source.fromFile(opt.scanChainFileName)
-        .mkString
-        .parseYaml
-        .convertTo[ScanChain]
+
+      val chains = chiffre.JsonProtocol.deserialize(opt.scanChainFileName)
 
       util.bind(chains)
 

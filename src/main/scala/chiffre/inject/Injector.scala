@@ -19,8 +19,6 @@ import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
 import chiffre._
 import chiffre.passes._
 import chiffre.scan._
-import ScanChainProtocol._
-import net.jcazevedo.moultingyaml._
 
 /** An injector interface */
 sealed class InjectorIo(val n: Int) extends Bundle {

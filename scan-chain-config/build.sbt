@@ -1,10 +1,8 @@
 import Dependencies._
 
-libraryDependencies += "net.jcazevedo" %% "moultingyaml" % "0.4.0"
-
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.6.0"
 
-libraryDependencies += "net.jcazevedo" %% "moultingyaml" % "0.4.0"
+libraryDependencies += "org.json4s" %% "json4s-native" % "3.5.3"
 
 assemblyJarName in assembly := "scan-chain-config.jar"
 
