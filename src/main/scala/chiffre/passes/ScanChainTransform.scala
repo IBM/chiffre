@@ -142,8 +142,7 @@ class ScanChainTransform extends Transform {
         // [todo] Order the scan chain based on distance
 
         // [todo] Set the emitted directory and file name
-        val sc = s.map{ case(k, v) => v.toScanChain(k) }
-          .reduce(_ ++ _)
+        val sc = s.flatMap{ case(k, v) => v.toScanChain(k) }
 
         val jsonFile = new FileWriter("scan-chain.json")
         jsonFile.write(JsonProtocol.serialize(sc))

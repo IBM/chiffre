@@ -21,8 +21,8 @@ import org.json4s.native.Serialization.{read, write, writePretty}
 
 object JsonProtocol {
   def getTags(s: ScanChain): List[Class[_]] = {
-    // Collect all classes that may exist in the scan chain. I'm using
-    // map/reduce as flatMap is throwing a type error.
+    /* Collect all classes that may exist in the scan chain. I'm using
+     * map/reduce as flatMap is throwing a type error. */
     s.map {
       case (k, v) => v.map(fc => fc.injector.getClass +:
                              fc.injector.fields.map(_.getClass)).reduce(_++_) }
@@ -46,7 +46,7 @@ object JsonProtocol {
         case (_, JArray(components)) => components.map {
           case JObject(_ :: ("injector",
                              JObject(("class", JString(c)) :: _)) :: _) => c
-          case _ => throwError()
+          case _ => throwError() }
         }
         case _ => throwError()
       }

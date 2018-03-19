@@ -58,7 +58,7 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)
   val do_unknown          = io.cmd.fire() & funct  >  f_ENABLE.U
 
   val Seq(s_WAIT, s_CYCLE_TRANSLATE, s_CYCLE_READ, s_CYCLE_QUIESCE, s_RESP,
-          s_ERROR) = Enum(6) // scalastyle:off magic.number
+          s_ERROR) = Enum(6) // scalastyle:ignore
 
   val state = RegInit(s_WAIT)
 

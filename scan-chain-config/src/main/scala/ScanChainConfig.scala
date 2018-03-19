@@ -169,7 +169,6 @@ object Main extends App {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils
-
       val chains = JsonProtocol.deserialize(opt.scanChainFileName)
 
       util.bind(chains)

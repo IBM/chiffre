@@ -36,7 +36,7 @@ class FaultInstrumentationTransform extends Transform {
     /* After FaultInstrumentation, the inline compilation needs to be cleaned
      * up. this massive list is what is helping with that. Assumedly, this
      * can be done better if we can directly get at the WIR from the
-     * inline compilation and */
+     * inline compilation. */
     ToWorkingIR,
     InferTypes,
     Uniquify,
