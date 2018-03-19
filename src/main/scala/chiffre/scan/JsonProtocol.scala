@@ -12,56 +12,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package chiffre
+package chiffre.scan
 
 import org.json4s._
 import org.json4s.native.JsonMethods.parse
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.{read, write, writePretty}
 
-import chiffre.scan.InjectorInfo
-
 object JsonProtocol {
-  def getTags(s: scan.ScanChain): List[Class[_]] = {
+  def getTags(s: ScanChain): List[Class[_]] = {
     // Collect all classes that may exist in the scan chain. I'm using
     // map/reduce as flatMap is throwing a type error.
-    val x = s.map{ case (k, v) => v.map(fc => fc.injector.getClass +:
-                                          fc.injector.fields.map(_.getClass)).reduce(_++_) }
+    s.map {
+      case (k, v) => v.map(fc => fc.injector.getClass +:
+                             fc.injector.fields.map(_.getClass)).reduce(_++_) }
       .reduce(_++_)
       .toList.distinct
-
-    // [todo] remove
-    x.foreach(xx => println(s" getTags: $xx"))
-
-    x
   }
 
-  def serialize(s: scan.ScanChain): String = {
+  def serialize(s: ScanChain): String = {
     implicit val formats = Serialization
       .formats(FullTypeHints(getTags(s)))
       .withTypeHintFieldName("class")
     writePretty(s)
   }
 
-  def deserialize(in: JsonInput): scan.ScanChain = {
-    def throwError() = throw new Exception("Bad scan chain input for deserialization")
+  def deserialize(in: JsonInput): ScanChain = {
+    def throwError() =
+      throw new Exception("Bad scan chain input for deserialization")
 
     val classNames: List[String] = parse(in) match {
       case JObject(sc) => sc.flatMap {
         case (_, JArray(components)) => components.map {
-          case JObject(_ :: ("injector", JObject(("class", JString(c)) :: _)) :: _) => c
+          case JObject(_ :: ("injector",
+                             JObject(("class", JString(c)) :: _)) :: _) => c
           case _ => throwError()
         }
         case _ => throwError()
       }
       case _ => throwError()
     }
-    val classes: List[Class[_ <: InjectorInfo]] = classNames.map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
-    classes.foreach(println(_))
+    val classes: List[Class[_ <: InjectorInfo]] = classNames
+      .map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
 
     implicit val formats = Serialization
       .formats(FullTypeHints(classes))
       .withTypeHintFieldName("class")
-    read[chiffre.scan.ScanChain](in)
+    read[ScanChain](in)
   }
 }

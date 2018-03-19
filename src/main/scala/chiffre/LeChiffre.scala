@@ -35,7 +35,8 @@ class LeChiffre(scanId: String)(implicit p: Parameters) extends LazyRoCC {
     TLClientPortParameters(Seq(TLClientParameters("LeChiffreRoCC")))))
 }
 
-class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Parameters)
+class LeChiffreModule(outer: LeChiffre, val scanId: String)
+                     (implicit p: Parameters)
     extends LazyRoCCModule(outer)
     with HasCoreParameters
     with HasL1CacheParameters
@@ -57,7 +58,7 @@ class LeChiffreModule(outer: LeChiffre, val scanId: String)(implicit p: Paramete
   val do_unknown          = io.cmd.fire() & funct  >  f_ENABLE.U
 
   val Seq(s_WAIT, s_CYCLE_TRANSLATE, s_CYCLE_READ, s_CYCLE_QUIESCE, s_RESP,
-          s_ERROR) = Enum(6)
+          s_ERROR) = Enum(6) // scalastyle:off magic.number
 
   val state = RegInit(s_WAIT)
 

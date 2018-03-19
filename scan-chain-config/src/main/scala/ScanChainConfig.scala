@@ -1,10 +1,9 @@
 // See LICENSE for license details.
-import scopt._
+import scopt.OptionParser
 import java.io.File
 import java.io.FileOutputStream
 import scala.io.Source
 import chiffre.scan._
-import chiffre.JsonProtocol
 
 case class ScanChainException(msg: String) extends Exception(msg)
 
@@ -127,7 +126,7 @@ class ScanChainUtils(implicit opt: Arguments) {
 }
 
 object Main extends App {
-  val parser = new scopt.OptionParser[Arguments]("ScanChainConfig") {
+  val parser = new OptionParser[Arguments]("ScanChainConfig") {
     help("help").text("prints this usage text")
 
     opt[Unit]("verbose")
@@ -171,7 +170,7 @@ object Main extends App {
       implicit val opt = x
       val util = new ScanChainUtils
 
-      val chains = chiffre.JsonProtocol.deserialize(opt.scanChainFileName)
+      val chains = JsonProtocol.deserialize(opt.scanChainFileName)
 
       util.bind(chains)
 
