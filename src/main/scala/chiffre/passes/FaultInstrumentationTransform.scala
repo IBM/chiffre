@@ -18,9 +18,13 @@ import firrtl.passes._
 import firrtl.annotations._
 import scala.collection.mutable
 
-case class FaultInjectionAnnotation(target: ComponentName, id: String, injector: String) extends
-    SingleTargetAnnotation[ComponentName] {
-  def duplicate(x: ComponentName) = this.copy(target = x)
+sealed trait FaultAnnos
+
+case class FaultInjectionAnnotation
+  (target: ComponentName, id: String, injector: String) extends
+    SingleTargetAnnotation[ComponentName] with FaultAnnos {
+  def duplicate(x: ComponentName): FaultInjectionAnnotation =
+    this.copy(target = x)
 }
 
 class FaultInstrumentationTransform extends Transform {
@@ -30,7 +34,9 @@ class FaultInstrumentationTransform extends Transform {
       Seq[Transform] = Seq(
     new FaultInstrumentation(compMap),
     /* After FaultInstrumentation, the inline compilation needs to be cleaned
-     * up. this massive list is what is helping with that. Assumedly, this can be done better if we can directly get at the WIR from the inline compilation and  */
+     * up. this massive list is what is helping with that. Assumedly, this
+     * can be done better if we can directly get at the WIR from the
+     * inline compilation. */
     ToWorkingIR,
     InferTypes,
     Uniquify,
@@ -42,7 +48,7 @@ class FaultInstrumentationTransform extends Transform {
     CheckTypes,
     new ScanChainTransform )
   def execute(state: CircuitState): CircuitState = {
-    val myAnnos = state.annotations.collect { case a: FaultInjectionAnnotation => a }
+    val myAnnos = state.annotations.collect { case a: FaultAnnos => a }
     myAnnos match {
       case Nil => state
       case p =>
@@ -59,7 +65,7 @@ class FaultInstrumentationTransform extends Transform {
           v.foreach( a =>
             logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
 
-        transforms(comp.toMap).foldLeft(state){ (old, x) => x.runTransform(old) }
+        transforms(comp.toMap).foldLeft(state)((old, x) => x.runTransform(old))
           .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
     }
   }

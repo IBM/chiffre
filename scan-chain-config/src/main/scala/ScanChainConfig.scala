@@ -1,12 +1,9 @@
 // See LICENSE for license details.
-import scopt._
+import scopt.OptionParser
 import java.io.File
 import java.io.FileOutputStream
 import scala.io.Source
 import chiffre.scan._
-
-import ScanChainProtocol._
-import net.jcazevedo.moultingyaml._
 
 case class ScanChainException(msg: String) extends Exception(msg)
 
@@ -129,7 +126,7 @@ class ScanChainUtils(implicit opt: Arguments) {
 }
 
 object Main extends App {
-  val parser = new scopt.OptionParser[Arguments]("ScanChainConfig") {
+  val parser = new OptionParser[Arguments]("ScanChainConfig") {
     help("help").text("prints this usage text")
 
     opt[Unit]("verbose")
@@ -172,10 +169,7 @@ object Main extends App {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils
-      val chains = Source.fromFile(opt.scanChainFileName)
-        .mkString
-        .parseYaml
-        .convertTo[ScanChain]
+      val chains = JsonProtocol.deserialize(opt.scanChainFileName)
 
       util.bind(chains)
 

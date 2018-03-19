@@ -17,13 +17,12 @@ import firrtl._
 import firrtl.ir._
 import firrtl.passes._
 import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
-import firrtl.annotations._
+import firrtl.annotations.{ComponentName, ModuleName, CircuitName,
+  SingleTargetAnnotation, Annotation}
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
 import java.io.FileWriter
-import chiffre.scan._
-import ScanChainProtocol._
-import net.jcazevedo.moultingyaml._
+import chiffre.scan.{ScanChain, InjectorInfo, FaultyComponent, JsonProtocol}
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
@@ -55,28 +54,35 @@ case class ScanChainInfo(
   }
 }
 
+sealed trait ScanAnnos
+
 case class ScanChainAnnotation(
   target: ComponentName,
   ctrl: String,
   dir: String,
   id: String,
-  key: Option[ComponentName]) extends SingleTargetAnnotation[ComponentName] {
-  def duplicate(x: ComponentName) = this.copy(target = x)
+  key: Option[ComponentName]) extends SingleTargetAnnotation[ComponentName]
+    with ScanAnnos {
+  def duplicate(x: ComponentName): ScanChainAnnotation = this.copy(target = x)
 }
 
 case class ScanChainInjectorAnnotation(
   target: ComponentName,
   id: String,
   instanceName: String,
-  moduleName: String) extends SingleTargetAnnotation[ComponentName] {
-  def duplicate(x: ComponentName) = this.copy(target = x)
+  moduleName: String) extends SingleTargetAnnotation[ComponentName]
+    with ScanAnnos {
+  def duplicate(x: ComponentName): ScanChainInjectorAnnotation =
+    this.copy(target = x)
 }
 
 case class ScanChainDescriptionAnnotation(
   target: ModuleName,
   id: String,
-  d: InjectorInfo) extends SingleTargetAnnotation[ModuleName] {
-  def duplicate(x: ModuleName) = this.copy(target = x)
+  d: InjectorInfo) extends SingleTargetAnnotation[ModuleName]
+    with ScanAnnos {
+  def duplicate(x: ModuleName): ScanChainDescriptionAnnotation =
+    this.copy(target = x)
 }
 
 class ScanChainTransform extends Transform {
@@ -97,13 +103,14 @@ class ScanChainTransform extends Transform {
       case _ =>
     }
     annos.foreach {
-      case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) = (ctrl, dir) match {
-        case ("slave", "in") =>
-          s(id).copy(slaveIn = s(id).slaveIn ++ Map(key.get -> comp))
-        case ("slave", "out") =>
-          s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
-        case _ => s(id)
-      }
+      case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) =
+        (ctrl, dir) match {
+          case ("slave", "in") =>
+            s(id).copy(slaveIn = s(id).slaveIn ++ Map(key.get -> comp))
+          case ("slave", "out") =>
+            s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
+          case _ => s(id)
+        }
       case ScanChainInjectorAnnotation(comp, id, inst, mod) => s(id) = s(id)
           .copy(injectors = s(id).injectors ++
                   Map(comp -> ModuleName(mod, comp.module.circuit)))
@@ -121,10 +128,7 @@ class ScanChainTransform extends Transform {
   }
 
   def execute(state: CircuitState): CircuitState = {
-    val myAnnos = state.annotations.collect {
-      case a @ ( _: ScanChainAnnotation |
-                  _: ScanChainInjectorAnnotation |
-                  _: ScanChainDescriptionAnnotation) => a }
+    val myAnnos = state.annotations.collect { case a: ScanAnnos => a }
     myAnnos match {
       case Nil => state
       case p =>
@@ -138,17 +142,11 @@ class ScanChainTransform extends Transform {
         // [todo] Order the scan chain based on distance
 
         // [todo] Set the emitted directory and file name
-        val scanFile = "scan-chain.yaml"
-        val w = new FileWriter(scanFile)
-        val sc = s.map{ case(k, v) => v.toScanChain(k) }
-          .reduce(_ ++ _)
+        val sc = s.flatMap{ case(k, v) => v.toScanChain(k) }
 
-        import ScanChainProtocol._
-        import net.jcazevedo.moultingyaml._
-
-        w.write(sc.toYaml.prettyPrint)
-
-        w.close()
+        val jsonFile = new FileWriter("scan-chain.json")
+        jsonFile.write(JsonProtocol.serialize(sc))
+        jsonFile.close()
 
         val ax = s.foldLeft(Seq[Annotation]()){ case (a, (name, v)) =>
           val masterIn = v.masterScan.copy(name=v.masterScan.name + ".in")
