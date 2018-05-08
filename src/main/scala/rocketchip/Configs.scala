@@ -14,11 +14,10 @@
 package freechips.rocketchip.system
 
 import chisel3._
-import chiffre._
-import freechips.rocketchip.config._
+import chiffre.{ChiffreParameters, LeChiffre, BuildChiffre}
+import freechips.rocketchip.config.{Config, Parameters}
 import freechips.rocketchip.tile.{RoCCParams, OpcodeSet}
 import freechips.rocketchip.subsystem.RocketTilesKey
-import freechips.rocketchip.system.DefaultConfig
 import freechips.rocketchip.diplomacy.LazyModule
 
 class WithLeChiffre extends Config ((site, here, up) => {

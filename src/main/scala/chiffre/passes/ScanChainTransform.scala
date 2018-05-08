@@ -92,6 +92,7 @@ class ScanChainTransform extends Transform {
     new firrtl.passes.wiring.WiringTransform
   )
 
+  // scalastyle:off cyclomatic.complexity
   def analyze(circuit: Circuit, annos: Seq[Annotation]):
       Map[String, ScanChainInfo] = {
     val s = mutable.HashMap[String, ScanChainInfo]()
@@ -102,30 +103,30 @@ class ScanChainTransform extends Transform {
       }
       case _ =>
     }
+    def exceptionIfUnknownId(id: String): Unit = if (!s.contains(id)) {
+      throw new ScanChainException(s"No known scan chain master '$id' (did you misspell it?)") }
     annos.foreach {
-      case ScanChainAnnotation(comp, ctrl, dir, id, key) => s(id) =
-        (ctrl, dir) match {
-          case ("slave", "in") =>
-            s(id).copy(slaveIn = s(id).slaveIn ++ Map(key.get -> comp))
-          case ("slave", "out") =>
-            s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
-          case _ => s(id)
-        }
-      case ScanChainInjectorAnnotation(comp, id, inst, mod) => s(id) = s(id)
-          .copy(injectors = s(id).injectors ++
-                  Map(comp -> ModuleName(mod, comp.module.circuit)))
+      case ScanChainAnnotation(comp, ctrl, dir, id, key) =>
+        exceptionIfUnknownId(id)
+        s(id) =
+          (ctrl, dir) match {
+            case ("slave", "in")  => s(id).copy(slaveIn  = s(id).slaveIn  ++ Map(key.get -> comp))
+            case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
+            case _                => s(id)
+          }
+      case ScanChainInjectorAnnotation(comp, id, inst, mod) =>
+        exceptionIfUnknownId(id)
+        s(id) = s(id).copy(injectors = s(id).injectors ++ Map(comp -> ModuleName(mod, comp.module.circuit)))
       case _ =>
     }
     annos.foreach {
-      case ScanChainDescriptionAnnotation(mod, id, d) => {
-        s(id) = s(id)
-          .copy(description = s(id).description ++
-                  Map(ModuleName(mod.name, CircuitName(circuit.main)) -> d))
-      }
+      case ScanChainDescriptionAnnotation(mod, id, d) =>
+        exceptionIfUnknownId(id)
+        s(id) = s(id).copy(description = s(id).description ++ Map(ModuleName(mod.name, CircuitName(circuit.main)) -> d))
       case _ =>
     }
     s.toMap
-  }
+  } // scalastyle:on cyclomatic.complexity
 
   def execute(state: CircuitState): CircuitState = {
     val myAnnos = state.annotations.collect { case a: ScanAnnos => a }
@@ -159,10 +160,9 @@ class ScanChainTransform extends Transform {
             SourceAnnotation(masterEn, "scan_en"))
 
           // [todo] This is not deterministic
-          val chain: Seq[ComponentName] = (
-            masterOut +:
-              v.injectors.flatMap{ case (k, _) =>
-                Seq(v.slaveIn(k), v.slaveOut(k)) }.toSeq :+ masterIn  )
+          val chain: Seq[ComponentName] = masterOut +: v.injectors
+            .flatMap{ case (k, _) => Seq(v.slaveIn(k), v.slaveOut(k)) }
+            .toSeq :+ masterIn
 
           val annotations = chain
             .grouped(2).zipWithIndex
@@ -173,8 +173,7 @@ class ScanChainTransform extends Transform {
           a ++ masterAnnotations ++ annotations
         }
 
-        val sx = state.copy(
-          annotations = AnnotationSeq(state.annotations.toSeq ++ ax))
+        val sx = state.copy(annotations = AnnotationSeq(state.annotations.toSeq ++ ax))
 
         transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
           .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
