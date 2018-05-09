@@ -47,11 +47,8 @@ object JsonProtocol {
           case JObject(_ :: ("injector",
                              JObject(("class", JString(c)) :: _)) :: _) => c
           case _ => throwError() }
-        }
-        case _ => throwError()
-      }
-      case _ => throwError()
-    }
+        case _ => throwError() }
+      case _ => throwError() }
     val classes: List[Class[_ <: InjectorInfo]] = classNames
       .map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
 
