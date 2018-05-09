@@ -125,8 +125,10 @@ class LeChiffreModuleImp(outer: LeChiffre, val scanId: String)
   }
 
   // Checksum computation
-  val fletcherWords = RegEnable(Vec(cacheDataBits/(checksumWidth/2),
-    UInt((checksumWidth/2).W)).fromBits(tl_out.d.bits.data), piso.p.valid)
+  val fletcherWords = RegEnable(
+    tl_out.d.bits.data
+      .asTypeOf(Vec(cacheDataBits/(checksumWidth/2), UInt((checksumWidth/2).W))),
+    piso.p.valid)
   val idx = cycle_count(log2Ceil(cacheDataBits) - 1, log2Ceil(checksumWidth/2))
   fletcher.io.data.bits.word := fletcherWords(idx)
   val last = cycle_count === cycles_to_scan - 1.U
