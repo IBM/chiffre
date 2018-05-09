@@ -17,9 +17,10 @@ import chisel3._
 import chisel3.util._
 import freechips.rocketchip.tile.{
   LazyRoCC,
-  LazyRoCCModule,
+  LazyRoCCModuleImp,
   HasCoreParameters,
-  HasL1CacheParameters}
+  HasL1CacheParameters,
+  OpcodeSet}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tilelink.{
   TLClientNode,
@@ -29,15 +30,16 @@ import freechips.rocketchip.tilelink.{
 import perfect.util._
 import perfect.random._
 
-class LeChiffre(scanId: String)(implicit p: Parameters) extends LazyRoCC {
-  override lazy val module = new LeChiffreModule(this, scanId)
-  override val atlNode = TLClientNode(Seq(
-    TLClientPortParameters(Seq(TLClientParameters("LeChiffreRoCC")))))
+class LeChiffre(opcode: OpcodeSet, scanId: String)
+               (implicit p: Parameters) extends LazyRoCC(opcode) {
+  override lazy val module = new LeChiffreModuleImp(this, scanId)
+  override val atlNode = TLClientNode(
+    Seq(TLClientPortParameters(Seq(TLClientParameters("LeChiffreRoCC")))))
 }
 
-class LeChiffreModule(outer: LeChiffre, val scanId: String)
-                     (implicit p: Parameters)
-    extends LazyRoCCModule(outer)
+class LeChiffreModuleImp(outer: LeChiffre, val scanId: String)
+                        (implicit p: Parameters)
+    extends LazyRoCCModuleImp(outer)
     with HasCoreParameters
     with HasL1CacheParameters
     with LeChiffreH

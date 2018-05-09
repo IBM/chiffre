@@ -16,21 +16,17 @@ package freechips.rocketchip.system
 import chisel3._
 import chiffre.{ChiffreParameters, LeChiffre, BuildChiffre}
 import freechips.rocketchip.config.{Config, Parameters}
-import freechips.rocketchip.tile.{RoCCParams, OpcodeSet}
+import freechips.rocketchip.tile.{BuildRoCC, OpcodeSet}
 import freechips.rocketchip.subsystem.RocketTilesKey
 import freechips.rocketchip.diplomacy.LazyModule
 
-class WithLeChiffre extends Config ((site, here, up) => {
-  case BuildChiffre => ChiffreParameters()
-  case RocketTilesKey => up(RocketTilesKey, site) map { r =>
-    r.copy(rocc = Seq(
-      RoCCParams(
-        opcodes = OpcodeSet.custom2,
-        generator = (p: Parameters) =>  {
-          val leChiffre = LazyModule(new LeChiffre("main")(p))
-          leChiffre})
-    ))
-  }
-})
+class WithLeChiffre extends Config (
+  (site, here, up) => {
+    case BuildChiffre => ChiffreParameters()
+    case BuildRoCC => List(
+      (p: Parameters) => {
+        val chiffre = LazyModule(new LeChiffre(OpcodeSet.custom2, "main")(p))
+        chiffre })
+  })
 
 class LeChiffreConfig extends Config(new WithLeChiffre ++ new DefaultConfig)
