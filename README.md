@@ -6,6 +6,17 @@ This relies on three major components:
   * New [FIRRTL](https://github.com/freechipsproject/firrtl) passes that instrument the circuit components with run-time configurable fault injectors
   * A utility for configuring fault injectors at run time
 
+More information can be found in a CARRV 2018 workshop paper, [_Chiffre_: A Configurable Hardware Fault Injection Framework for RISC-V Systems](https://carrv.github.io/2018/papers/CARRV_2018_paper_2.pdf):
+
+``` bibtex
+@inproceedings{eldridge:2018:carrv,
+  author = {Eldridge, Schuyler and Buyuktosunoglu, Alper and Bose, Pradip},
+  title = {Chiffre: A Configurable Hardware Fault Injection Framework for RISC-V Systems},
+  booktitle = {2nd Workshop on Computer Architecture Research with RISC-V (CARRV '18)},
+  year = {2018},
+}
+```
+
 ### Examples
 
 There are currently two major usage classes: standalone injection and Rocket Chip-assisted injection.
