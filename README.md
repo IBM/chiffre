@@ -1,5 +1,7 @@
 ## Chained Hierarchical Injection for Fault Resiliency Evaluation (Chiffre)
 
+[![Build Status](https://travis-ci.com/IBM/chiffre.svg?branch=master)](https://travis-ci.com/IBM/chiffre)
+
 This provides a framework for automatically instrumenting a hardware design with run-time configurable fault injectors.
 This relies on three major components:
   * A [Chisel](https://github.com/freechipsproject/chisel3) library that emits _annotations_ marking specific circuit components as fault injectable
