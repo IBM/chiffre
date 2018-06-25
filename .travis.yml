@@ -1,0 +1,25 @@
+language: scala
+sudo: false
+
+cache:
+  directories:
+    $HOME/.ivy2
+
+git:
+  depth: 10
+
+env:
+  global:
+    INSTALL_DIR=$TRAVIS_BUILD_DIR/install
+    VERILATOR_ROOT=$INSTALL_DIR
+    PATH=$PATH:$VERILATOR_ROOT/bin:$TRAVIS_BUILD_DIR/utils/bin
+    SBT_ARGS="-Dsbt.log.noformat=true"
+
+jobs:
+  include:
+    - stage: test-2.11.12
+      script:
+        - sbt ++2.11.12 $SBT_ARGS test
+    - stage: test-2.12.4
+      script:
+        - sbt ++2.12.4 $SBT_ARGS test

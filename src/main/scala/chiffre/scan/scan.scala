@@ -13,13 +13,21 @@
 // limitations under the License.
 package chiffre.scan
 
+case class ScanFieldException(msg: String) extends Exception(msg)
+
 /* A configurable region of the scan chain */
-sealed trait ScanField {
+trait ScanField {
   def name: String = this.getClass.getSimpleName
 
   def width: Int
+  if (width < 1) {
+    throw new ScanFieldException(s"ScanField '$name' width must be greater than 0") }
+
+  def maxValue = BigInt(2).pow(width) - 1
 
   def value: Option[BigInt]
+  if (value.nonEmpty && (value.get < 0 || value.get > maxValue)) {
+    throw new ScanFieldException(s"ScanField '$name' value must be on domain [0, $maxValue], but was ${value.get}") }
 
   def toBits(): String = s"%${width}s"
     .format(value.getOrElse(BigInt(0)).toString(2))
@@ -46,7 +54,7 @@ case class Difficulty(width: Int, probability: Option[Double] = None)
 }
 case class Seed(width: Int, value: Option[BigInt] = None) extends ScanField
 
-sealed abstract class InjectorInfo {
+abstract class InjectorInfo {
   def tpe: String
   def width: Int
 
