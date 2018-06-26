@@ -15,19 +15,21 @@ package chiffre.scan
 
 case class ScanFieldException(msg: String) extends Exception(msg)
 
-/* A configurable region of the scan chain */
-trait ScanField {
+trait HasName {
   def name: String = this.getClass.getSimpleName
+}
 
-  def width: Int
+/* A configurable region of the scan chain */
+trait ScanField extends HasName {
+  val width: Int
+  val value: Option[BigInt]
+
   if (width < 1) {
     throw new ScanFieldException(s"ScanField '$name' width must be greater than 0") }
-
-  def maxValue = BigInt(2).pow(width) - 1
-
-  def value: Option[BigInt]
   if (value.nonEmpty && (value.get < 0 || value.get > maxValue)) {
     throw new ScanFieldException(s"ScanField '$name' value must be on domain [0, $maxValue], but was ${value.get}") }
+
+  lazy val maxValue = BigInt(2).pow(width) - 1
 
   def toBits(): String = s"%${width}s"
     .format(value.getOrElse(BigInt(0)).toString(2))
@@ -39,18 +41,18 @@ trait ScanField {
         |${indent}  value: ${toBits}"""
       .stripMargin
   }
+
+  def isBound(): Boolean = value.nonEmpty
 }
 
 case class Cycle(width: Int, value: Option[BigInt] = None) extends ScanField
-case class CycleInject(width: Int, value: Option[BigInt] = None)
-    extends ScanField
+case class CycleInject(width: Int, value: Option[BigInt] = None) extends ScanField
 case class Mask(width: Int, value: Option[BigInt] = None) extends ScanField
 case class StuckAt(width: Int, value: Option[BigInt] = None) extends ScanField
-case class Difficulty(width: Int, probability: Option[Double] = None)
-    extends ScanField {
-  val value = if (probability.isEmpty) { None }
-  else { Some(BigDecimal((math.pow(2, width) - 1) *
-                           probability.getOrElse(0.0)).toBigInt) }
+case class Difficulty(width: Int, probability: Option[Double] = None) extends ScanField {
+  lazy val value =
+    if (probability.isEmpty) { None                                                                  }
+    else                     { Some(BigDecimal((math.pow(2, width) - 1) * probability.get).toBigInt) }
 }
 case class Seed(width: Int, value: Option[BigInt] = None) extends ScanField
 

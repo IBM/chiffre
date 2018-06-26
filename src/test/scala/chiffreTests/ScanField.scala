@@ -13,12 +13,14 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.scan.{ScanField, ScanFieldException}
+import chiffre.scan.{ScanField, ScanFieldException, Difficulty}
 import chisel3.iotesters.ChiselFlatSpec
 
 case class DummyField(width: Int, value: Option[BigInt] = None) extends ScanField
 
 class ScanFieldSpec extends ChiselFlatSpec {
+
+  def backToInt(f: ScanField): Int = Integer.parseInt(f.toBits, 2)
 
   behavior of "ScanField"
 
@@ -26,18 +28,32 @@ class ScanFieldSpec extends ChiselFlatSpec {
     a [ScanFieldException] should be thrownBy (new DummyField(0))
   }
 
-  it should "throw a ScanFieldException if value is outside domain" in {
-    val x = new DummyField(8)
+  it should "throw a ScanFieldException if value is outside domain inferred from the width" in {
+    val x = DummyField(8)
     a [ScanFieldException] should be thrownBy (x.copy(value = Some(-1)))
     a [ScanFieldException] should be thrownBy (x.copy(value = Some(256)))
   }
 
   it should "serialize bits correctly" in {
-    val x = new DummyField(8)
+    val x = DummyField(8)
 
-    (0 until x.maxValue.toInt + 1).foreach{ v =>
-      val bound = x.copy(value = Some(v))
-      v should be (Integer.parseInt(bound.toBits, 2))
-    }
+    (0 until x.maxValue.toInt + 1).foreach( v => v should be (backToInt(x.copy(value = Some(v)))) )
+  }
+
+  behavior of "Difficulty"
+
+  it should "throw a ScanFieldException if the probability is nonsensical" in {
+    val x = Difficulty(width = 24)
+    a [ScanFieldException] should be thrownBy (x.copy(probability = Some(-0.1f)))
+    a [ScanFieldException] should be thrownBy (x.copy(probability = Some(1.1f)))
+  }
+
+  it should "map 1.0 probability should to maxValue" in {
+    backToInt(Difficulty(width = 23, Some(0))) should be (0)
+  }
+
+  it should "map 0.0 probability to 0" in {
+    val x = Difficulty(width = 23, Some(1))
+    backToInt(x) should be (x.maxValue)
   }
 }
