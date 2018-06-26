@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package chiffre.scan
+
+import chiffre.InjectorInfo
 
 import org.json4s._
 import org.json4s.native.JsonMethods.parse

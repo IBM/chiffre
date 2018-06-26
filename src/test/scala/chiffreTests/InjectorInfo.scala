@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,16 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package chiffre.scan
+package chiffreTests
 
-import chiffre.InjectorInfo
+import chisel3.iotesters.ChiselFlatSpec
 
-/* The name of a signal and it's associated fault injector */
-case class FaultyComponent(name: String, injector: InjectorInfo) {
-  def serialize(indent: String): String =
-    s"""|${indent}- $name:
-        |${injector.serialize(indent + "  ")}"""
-      .stripMargin
+class InjectorInfoSpec extends ChiselFlatSpec {
 
-  def toBits(): String = injector.toBits()
+  behavior of "InjectoInfo"
 }

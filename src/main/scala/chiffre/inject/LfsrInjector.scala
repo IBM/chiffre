@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,21 @@ package chiffre.inject
 import chisel3._
 import chisel3.util._
 import chiffre.scan._
+
+import chiffre.{ScanField, InjectorInfo}
+
+case class Seed(width: Int, value: Option[BigInt] = None) extends ScanField
+case class Difficulty(width: Int, probability: Option[Double] = None) extends ScanField {
+  lazy val value =
+    if (probability.isEmpty) { None                                                                  }
+    else                     { Some(BigDecimal((math.pow(2, width) - 1) * probability.get).toBigInt) }
+}
+
+case class LfsrInjectorInfo(width: Int, lfsrWidth: Int) extends InjectorInfo {
+  val tpe = s"lfsr$lfsrWidth"
+  fields = Seq.fill(width)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth)))
+    .flatten
+}
 
 class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   val difficulty = RegInit(0.U(lfsrWidth.W))

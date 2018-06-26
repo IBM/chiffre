@@ -14,7 +14,6 @@
 package chiffre
 
 import chisel3._
-import chiffre.scan.InjectorInfo
 
 class ScanIo extends Bundle {
   val clk = Input(Bool())

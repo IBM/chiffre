@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,17 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-class StuckAt(n: Int, id: String) extends Injector(n, id) {
+import chiffre.{ScanField, InjectorInfo}
+
+case class Mask(width: Int, value: Option[BigInt] = None) extends ScanField
+case class StuckAt(width: Int, value: Option[BigInt] = None) extends ScanField
+
+case class StuckAtInjectorInfo(width: Int) extends InjectorInfo {
+  val tpe = "stuckAt"
+  fields = Seq(Mask(width), StuckAt(width))
+}
+
+class StuckAtInjector(n: Int, id: String) extends Injector(n, id) {
   val mask = Reg(UInt(n.W))
   val value = Reg(UInt(n.W))
 

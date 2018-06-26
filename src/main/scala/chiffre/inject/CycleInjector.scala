@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,17 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-class CycleInjector(n: Int, cycleWidth: Int, id: String)
-    extends Injector(n, id) {
+import chiffre.{ScanField, InjectorInfo}
+
+case class Cycle(width: Int, value: Option[BigInt] = None) extends ScanField
+case class CycleInject(width: Int, value: Option[BigInt] = None) extends ScanField
+
+case class CycleInjectorInfo(width: Int, cycleWidth: Int) extends InjectorInfo {
+  val tpe = s"cycle$cycleWidth"
+  fields = Seq(Cycle(cycleWidth), CycleInject(width))
+}
+
+class CycleInjector(n: Int, cycleWidth: Int, id: String) extends Injector(n, id) {
   val cycleTarget = Reg(UInt(cycleWidth.W))
   val cycleCounter = Reg(UInt(cycleWidth.W))
   val flipMask = Reg(UInt(n.W))

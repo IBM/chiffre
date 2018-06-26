@@ -13,7 +13,8 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.scan.{ScanField, ScanFieldException, Difficulty}
+import chiffre.{ScanField, ScanFieldException}
+import chiffre.inject.Difficulty
 import chisel3.iotesters.ChiselFlatSpec
 
 case class DummyField(width: Int, value: Option[BigInt] = None) extends ScanField

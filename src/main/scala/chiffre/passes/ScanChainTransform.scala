@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ import firrtl._
 import firrtl.ir._
 import firrtl.passes._
 import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
-import firrtl.annotations.{ComponentName, ModuleName, CircuitName,
-  SingleTargetAnnotation, Annotation}
+import firrtl.annotations.{ComponentName, ModuleName, CircuitName, SingleTargetAnnotation, Annotation}
 import firrtl.annotations.AnnotationUtils._
+import chiffre.InjectorInfo
+import chiffre.scan.{ScanChain, FaultyComponent, JsonProtocol}
+
 import scala.collection.mutable
 import java.io.FileWriter
-import chiffre.scan.{ScanChain, InjectorInfo, FaultyComponent, JsonProtocol}
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
