@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,19 +15,24 @@ package chiffre
 
 case class ScanFieldException(msg: String) extends Exception(msg)
 
-trait HasName {
-  def name: String = this.getClass.getSimpleName
+trait HasWidth {
+  val width: Int
 }
 
-/* A configurable region of the scan chain */
-trait ScanField extends HasName {
-  val width: Int
-  val value: Option[BigInt]
+trait HasName {
+  val name: String
+}
+
+/** A configurable field of the scan chain */
+trait ScanField[T] extends HasName with HasWidth {
+  protected def do_bind(in: T): BigInt
+
+  var value: Option[BigInt] = None
+
+  val name: String = this.getClass.getSimpleName
 
   if (width < 1) {
     throw new ScanFieldException(s"ScanField '$name' width must be greater than 0") }
-  if (value.nonEmpty && (value.get < 0 || value.get > maxValue)) {
-    throw new ScanFieldException(s"ScanField '$name' value must be on domain [0, $maxValue], but was ${value.get}") }
 
   lazy val maxValue = BigInt(2).pow(width) - 1
 
@@ -42,5 +47,24 @@ trait ScanField extends HasName {
       .stripMargin
   }
 
+  def bind(in: T): ScanField[T] = {
+    val vx = do_bind(in)
+    if (vx < 0 || vx > maxValue) {
+      throw new ScanFieldException(
+        s"Cannot bind ScanField '$name' to value $in must be on domain [0, $maxValue], but would be ${vx}")
+    }
+    value = Some(vx)
+    this
+  }
+
+  def unbind(): ScanField[T] = {
+    value = None
+    this
+  }
+
   def isBound(): Boolean = value.nonEmpty
+}
+
+abstract class SimpleScanField extends ScanField[BigInt] {
+  protected def do_bind(in: BigInt): BigInt = in
 }

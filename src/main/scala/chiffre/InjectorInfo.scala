@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,19 +13,16 @@
 // limitations under the License.
 package chiffre
 
-trait InjectorInfo {
-  def tpe: String
-  def width: Int
-
+trait InjectorInfo extends HasName with HasWidth {
   /* All configurable fields for this specific injector */
-  var fields: Seq[ScanField] = Seq()
+  val fields: Seq[ScanField[_]]
 
   /* The width of this injector's scan chain configuration */
-  def getWidth(): Int = fields.foldLeft(0)( (l, r) => l + r.width )
+  lazy val width: Int = fields.foldLeft(0)( (l, r) => l + r.width )
 
   /* Prety print */
   def serialize(tab: String = ""): String = {
-    s"""|${tab}type: $tpe
+    s"""|${tab}name: $name
         |${tab}width: $width
         |${fields.map(a => s"${a.serialize(tab + "  ")}").mkString("\n")}"""
       .stripMargin
@@ -33,5 +30,5 @@ trait InjectorInfo {
 
   def toBits(): String = fields.map(_.toBits()).mkString
 
-  def isBound(): Boolean = fields.map(_.isBound).reduce(_ && _)
+  def isBound(): Boolean = fields.map(_.isBound).reduceOption(_ && _).getOrElse(true)
 }

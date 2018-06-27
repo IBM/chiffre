@@ -17,14 +17,14 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{ScanField, InjectorInfo}
+import chiffre.{SimpleScanField, InjectorInfo}
 
-case class Mask(width: Int, value: Option[BigInt] = None) extends ScanField
-case class StuckAt(width: Int, value: Option[BigInt] = None) extends ScanField
+case class Mask(width: Int) extends SimpleScanField
+case class StuckAt(width: Int) extends SimpleScanField
 
-case class StuckAtInjectorInfo(width: Int) extends InjectorInfo {
-  val tpe = "stuckAt"
-  fields = Seq(Mask(width), StuckAt(width))
+case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
+  val name = "stuckAt"
+  val fields = Seq(Mask(bitWidth), StuckAt(bitWidth))
 }
 
 class StuckAtInjector(n: Int, id: String) extends Injector(n, id) {

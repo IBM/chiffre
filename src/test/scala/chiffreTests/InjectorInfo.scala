@@ -13,9 +13,49 @@
 // limitations under the License.
 package chiffreTests
 
+import chiffre.{InjectorInfo, ScanField, SimpleScanField}
 import chisel3.iotesters.ChiselFlatSpec
 
 class InjectorInfoSpec extends ChiselFlatSpec {
 
+  case class DummyField(width: Int) extends SimpleScanField
+  class DummyInjectorInfo(val fields: Seq[ScanField[_]]) extends InjectorInfo {
+    val name = "dummy"
+  }
+
   behavior of "InjectoInfo"
+
+  it should "have width 0 and report bound if without fields" in {
+    class EmptyInjectorInfo extends InjectorInfo {
+      val name = "DummyInjectorInfo"
+      val fields = Seq.empty
+    }
+
+    val x = new EmptyInjectorInfo()
+    x.width should be (0)
+    x.isBound should be (true)
+  }
+
+  it should "report the width as the sum of its fields" in {
+    val widths = Range(1, 10, 2)
+    val x = new DummyInjectorInfo(widths.map(DummyField(_)))
+    x.width should be (widths.sum)
+  }
+
+  it should "bind and unbind fields to values" in {
+    val widths = Range(1, 10, 2)
+    val x = new DummyInjectorInfo(widths.map(DummyField(_)))
+
+    x.fields.foreach( _.value should be (None) )
+    x.fields.foreach( _.isBound should be (false) )
+
+    val values = widths.map(BigInt(2).pow(_) - 1)
+    x.fields.zip(values).foreach{ case (f, v) => f match { case f: DummyField => f.bind(v) } }
+    x.fields.zip(values).foreach{ case (f, v) => f.value should be (Some(v)) }
+    x.fields.foreach( _.isBound should be (true) )
+
+    x.fields.foreach(_.unbind)
+    x.fields.foreach( _.value should be (None) )
+    x.fields.foreach( _.isBound should be (false) )
+  }
 }
