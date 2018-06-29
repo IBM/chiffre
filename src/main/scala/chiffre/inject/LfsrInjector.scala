@@ -17,12 +17,10 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{ScanField, InjectorInfo}
+import chiffre.{ScanField, InjectorInfo, ProbabilityBind}
 
 case class Seed(width: Int) extends ScanField
-case class Difficulty(width: Int) extends ScanField {
-  def bind(probability: Double): ScanField = bind(BigDecimal((math.pow(2, width) - 1) * probability).toBigInt)
-}
+case class Difficulty(width: Int) extends ScanField with ProbabilityBind
 
 case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo {
   val name = s"lfsr$lfsrWidth"

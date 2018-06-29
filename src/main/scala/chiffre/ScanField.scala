@@ -67,3 +67,7 @@ trait ScanField extends HasName with HasWidth {
 
   override def hashCode: Int = this.serialize().hashCode
 }
+
+trait ProbabilityBind { this: ScanField =>
+  def bind(probability: Double): ScanField = bind(BigDecimal((math.pow(2, width) - 1) * probability).toBigInt)
+}
