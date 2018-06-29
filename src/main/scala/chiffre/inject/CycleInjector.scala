@@ -17,7 +17,7 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{SimpleScanField, ScanField, InjectorInfo, HasName, HasWidth}
+import chiffre.{SimpleScanField, InjectorInfo, HasName, HasWidth}
 
 case class Cycle(width: Int) extends SimpleScanField
 case class CycleInject(width: Int) extends SimpleScanField

@@ -15,7 +15,7 @@ package chiffre
 
 trait InjectorInfo extends HasName with HasWidth {
   /* All configurable fields for this specific injector */
-  val fields: Seq[ScanField[_]]
+  val fields: Seq[ScanField]
 
   /* The width of this injector's scan chain configuration */
   lazy val width: Int = fields.foldLeft(0)( (l, r) => l + r.width )

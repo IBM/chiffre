@@ -24,15 +24,22 @@ trait HasName {
 }
 
 /** A configurable field of the scan chain */
-trait ScanField[T] extends HasName with HasWidth {
-  protected def do_bind(in: T): BigInt
-
+trait ScanField extends HasName with HasWidth {
   var value: Option[BigInt] = None
 
   val name: String = this.getClass.getSimpleName
 
   if (width < 1) {
     throw new ScanFieldException(s"ScanField '$name' width must be greater than 0") }
+
+  def bind(in: BigInt): ScanField = {
+    if (in < 0 || in > maxValue) {
+      throw new ScanFieldException(
+        s"Cannot bind ScanField '$name' to value $in must be on domain [0, $maxValue], but would be ${in}")
+    }
+    value = Some(in)
+    this
+  }
 
   lazy val maxValue = BigInt(2).pow(width) - 1
 
@@ -47,24 +54,18 @@ trait ScanField[T] extends HasName with HasWidth {
       .stripMargin
   }
 
-  def bind(in: T): ScanField[T] = {
-    val vx = do_bind(in)
-    if (vx < 0 || vx > maxValue) {
-      throw new ScanFieldException(
-        s"Cannot bind ScanField '$name' to value $in must be on domain [0, $maxValue], but would be ${vx}")
-    }
-    value = Some(vx)
-    this
-  }
-
-  def unbind(): ScanField[T] = {
+  def unbind(): ScanField = {
     value = None
     this
   }
 
   def isBound(): Boolean = value.nonEmpty
+
+  def ==(that: ScanField): Boolean = this.hashCode == that.hashCode
+
+  def !=(that: ScanField): Boolean = this.hashCode != that.hashCode
+
+  override def hashCode: Int = this.serialize().hashCode
 }
 
-abstract class SimpleScanField extends ScanField[BigInt] {
-  protected def do_bind(in: BigInt): BigInt = in
-}
+abstract class SimpleScanField extends ScanField

@@ -14,14 +14,12 @@
 package chiffreTests
 
 import chiffre.{ScanField, SimpleScanField, ScanFieldException}
-import chiffre.inject.Difficulty
+import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.ChiselFlatSpec
 
 case class DummyField(width: Int) extends SimpleScanField
 
 class ScanFieldSpec extends ChiselFlatSpec {
-
-  def backToInt(f: ScanField[_]): Int = Integer.parseInt(f.toBits, 2)
 
   behavior of "ScanField"
 
@@ -39,25 +37,5 @@ class ScanFieldSpec extends ChiselFlatSpec {
     val x = DummyField(8)
 
     (0 until x.maxValue.toInt + 1).foreach( v => v should be (backToInt(x.bind(v))))
-  }
-
-  behavior of "Difficulty"
-
-  it should "throw a ScanFieldException if the probability is nonsensical" in {
-    val x = Difficulty(width = 24)
-    a [ScanFieldException] should be thrownBy (x.bind(-0.1))
-    a [ScanFieldException] should be thrownBy (x.bind(1.1))
-  }
-
-  it should "map 1.0 probability should to maxValue" in {
-    val x = Difficulty(width = 23)
-    x.bind(0.0)
-    backToInt(x) should be (0)
-  }
-
-  it should "map 0.0 probability to 0" in {
-    val x = Difficulty(width = 23)
-    x.bind(1.0)
-    backToInt(x) should be (x.maxValue)
   }
 }

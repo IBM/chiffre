@@ -13,11 +13,8 @@
 // limitations under the License.
 package chiffreTests
 
-import chisel3.iotesters.ChiselFlatSpec
+import chiffre.ScanField
 
-class InjectorSpec extends ChiselFlatSpec {
-  behavior of "Cycle Injector"
-
-  it should "print on the command line" in {
-  }
+object ChiffreSpecUtils {
+  def backToInt(f: ScanField): Int = Integer.parseInt(f.toBits, 2)
 }

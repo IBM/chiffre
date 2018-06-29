@@ -17,11 +17,11 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{ScanField, SimpleScanField, InjectorInfo}
+import chiffre.{SimpleScanField, ScanField, InjectorInfo}
 
 case class Seed(width: Int) extends SimpleScanField
-case class Difficulty(width: Int) extends ScanField[Double] {
-  protected def do_bind(probability: Double): BigInt = BigDecimal((math.pow(2, width) - 1) * probability).toBigInt
+case class Difficulty(width: Int) extends ScanField {
+  def bind(probability: Double): ScanField = bind(BigDecimal((math.pow(2, width) - 1) * probability).toBigInt)
 }
 
 case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo {
@@ -29,7 +29,7 @@ case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo 
   val fields = Seq.fill(bitWidth)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth))).flatten
 }
 
-class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
+class LfsrInjector(val lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   val difficulty = RegInit(0.U(lfsrWidth.W))
   val seed = RegInit(1.U(lfsrWidth.W))
   lazy val info = LfsrInjectorInfo(1, lfsrWidth)

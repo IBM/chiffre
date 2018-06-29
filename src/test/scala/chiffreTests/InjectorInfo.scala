@@ -19,11 +19,11 @@ import chisel3.iotesters.ChiselFlatSpec
 class InjectorInfoSpec extends ChiselFlatSpec {
 
   case class DummyField(width: Int) extends SimpleScanField
-  class DummyInjectorInfo(val fields: Seq[ScanField[_]]) extends InjectorInfo {
+  class DummyInjectorInfo(val fields: Seq[ScanField]) extends InjectorInfo {
     val name = "dummy"
   }
 
-  behavior of "InjectoInfo"
+  behavior of "The InjectoInfo trait"
 
   it should "have width 0 and report bound if without fields" in {
     class EmptyInjectorInfo extends InjectorInfo {
