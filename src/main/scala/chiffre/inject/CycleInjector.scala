@@ -17,10 +17,10 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{SimpleScanField, InjectorInfo, HasName, HasWidth}
+import chiffre.{InjectorInfo, ScanField, HasName, HasWidth}
 
-case class Cycle(width: Int) extends SimpleScanField
-case class CycleInject(width: Int) extends SimpleScanField
+case class Cycle(width: Int) extends ScanField
+case class CycleInject(width: Int) extends ScanField
 
 case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int) extends InjectorInfo {
   val name = s"cycle$cycleWidth"

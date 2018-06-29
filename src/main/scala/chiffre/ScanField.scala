@@ -67,5 +67,3 @@ trait ScanField extends HasName with HasWidth {
 
   override def hashCode: Int = this.serialize().hashCode
 }
-
-abstract class SimpleScanField extends ScanField

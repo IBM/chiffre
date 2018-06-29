@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.{ScanFieldException, SimpleScanField}
+import chiffre.{ScanFieldException, ScanField}
 import chiffre.inject.{Difficulty, LfsrInjectorInfo, InjectorLike, LfsrInjector}
 import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.{ChiselFlatSpec, PeekPokeTester, Driver}
@@ -55,7 +55,7 @@ class LfsrInjectSpec extends ChiselFlatSpec {
   behavior of "LfsrInjector"
 
   class LfsrTester(dut: LfsrInjector) extends PeekPokeTester(dut) {
-    case class Chunk(width: Int) extends SimpleScanField
+    case class Chunk(width: Int) extends ScanField
 
     def load(bitString: String): String = {
       val out = new StringBuilder(bitString.size)

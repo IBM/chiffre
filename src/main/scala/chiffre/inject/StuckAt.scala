@@ -17,10 +17,10 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{SimpleScanField, InjectorInfo}
+import chiffre.{ScanField, InjectorInfo}
 
-case class Mask(width: Int) extends SimpleScanField
-case class StuckAt(width: Int) extends SimpleScanField
+case class Mask(width: Int) extends ScanField
+case class StuckAt(width: Int) extends ScanField
 
 case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
   val name = "stuckAt"

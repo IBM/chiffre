@@ -13,12 +13,12 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.{InjectorInfo, ScanField, SimpleScanField}
+import chiffre.{InjectorInfo, ScanField}
 import chisel3.iotesters.ChiselFlatSpec
 
 class InjectorInfoSpec extends ChiselFlatSpec {
 
-  case class DummyField(width: Int) extends SimpleScanField
+  case class DummyField(width: Int) extends ScanField
   class DummyInjectorInfo(val fields: Seq[ScanField]) extends InjectorInfo {
     val name = "dummy"
   }

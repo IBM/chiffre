@@ -17,9 +17,9 @@ import chisel3._
 import chisel3.util._
 import chiffre.scan._
 
-import chiffre.{SimpleScanField, ScanField, InjectorInfo}
+import chiffre.{ScanField, InjectorInfo}
 
-case class Seed(width: Int) extends SimpleScanField
+case class Seed(width: Int) extends ScanField
 case class Difficulty(width: Int) extends ScanField {
   def bind(probability: Double): ScanField = bind(BigDecimal((math.pow(2, width) - 1) * probability).toBigInt)
 }
