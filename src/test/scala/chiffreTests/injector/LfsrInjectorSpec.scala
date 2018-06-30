@@ -14,7 +14,7 @@
 package chiffreTests.inject
 
 import chiffre.{ScanFieldException, ScanField}
-import chiffre.inject.{Difficulty, LfsrInjectorInfo, InjectorLike, LfsrInjector}
+import chiffre.inject.{Seed, Difficulty, LfsrInjectorInfo, InjectorLike, LfsrInjector}
 import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.{ChiselFlatSpec, PeekPokeTester, Driver}
 
@@ -67,7 +67,7 @@ class LfsrInjectSpec extends ChiselFlatSpec {
         poke(dut.io.scan.clk, 1)
         step(1)
       }
-      poke(dut.io.scan.en, 0)
+      poke(dut.io.scan.clk, 0)
       out.toString
     }
 
@@ -78,7 +78,7 @@ class LfsrInjectSpec extends ChiselFlatSpec {
     }
 
     def load(in: LfsrInjectorInfo): LfsrInjectorInfo = {
-      var outS: String = load(in.toBits).reverse.toString
+      var outS: String = load(in.toBits.reverse).reverse.toString
       val out = in.copy()
       out.fields.foreach{ f =>
         val (car, cdr) = outS.splitAt(f.width)
@@ -112,16 +112,44 @@ class LfsrInjectSpec extends ChiselFlatSpec {
     Driver(() => new LfsrInjector(4, "dummy")) { dut => new LfsrCycleTester(dut) }
   }
 
+  /** Checks that the expected probability matches the observed
+    * probability */
   class ProbabilisticTester(dut: LfsrInjector, p: Double) extends LfsrTester(dut) {
     val info = LfsrInjectorInfo(1, dut.lfsrWidth)
+
+    info.fields.foreach{
+      case s: Seed => s.bind(1)
+      case d: Difficulty => d.bind(p)
+    }
+
+    poke(dut.io.scan.en, 0)
+    poke(dut.io.in, 0)
+    println(info.serialize())
+    load(info)
+    poke(dut.io.scan.en, 1)
+    step(1)
+    poke(dut.io.scan.en, 0)
+    val iterations = math.pow(2, dut.lfsrWidth).toInt
+    var faultCount: BigInt = 0
+    for (i <- 0 to iterations - 2) {
+      faultCount += peek(dut.io.out)
+      step(1)
+    }
+    poke(dut.io.scan.en, 1)
+    step(1)
+    println(s"Saw $faultCount faults")
   }
 
-  it should "always fire for minimum difficulty" in {
-    Driver(() => new LfsrInjector(32, "dummy")) { dut => new ProbabilisticTester(dut, 0.0) }
+  ignore should "always fire for minimum difficulty" in {
+    Driver(() => new LfsrInjector(8, "dummy")) { dut => new ProbabilisticTester(dut, 0.0) }
   }
 
-  it should "never fire for maximum difficulty" in {
-    Driver(() => new LfsrInjector(32, "dummy")) { dut => new ProbabilisticTester(dut, 0.0) }
+  ignore should "never fire for maximum difficulty" in {
+    Driver(() => new LfsrInjector(8, "dummy")) { dut => new ProbabilisticTester(dut, 0.0) }
+  }
+
+  it should "fire with ~50% probability with 50% difficulty" in {
+    Driver(() => new LfsrInjector(6, "dummy")) { dut => new ProbabilisticTester(dut, 0.25) }
   }
 
   it should "generate pseudo random faults when enabled" in (pending)

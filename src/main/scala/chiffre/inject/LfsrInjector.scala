@@ -51,14 +51,14 @@ class LfsrInjector(val lfsrWidth: Int, id: String) extends OneBitInjector(id) {
     printf(s"[info] $name fire\n")
   }
 
-  when (io.scan.en && !enabled) {
+  when (enabled && RegNext(!enabled)) {
     printf(s"""|[info] $name enabled
                |[info]   - seed: 0x%x
                |[info]   - difficulty: 0x%x
                |""".stripMargin, seed, difficulty)
   }
 
-  when (io.scan.en && enabled) {
+  when (!enabled && RegNext(enabled)) {
     printf(s"[info] $name disabled\n")
   }
 }
