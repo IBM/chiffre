@@ -36,7 +36,7 @@ class LfsrInjector(val lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   lfsr.io.seed.valid := io.scan.en
   lfsr.io.seed.bits := seed
 
-  val fire = enabled && (lfsr.io.y < difficulty)
+  val fire = enabled && (lfsr.io.y <= difficulty)
   io.out := Mux(fire, ~io.in, io.in)
 
   when (io.scan.clk) {
@@ -46,10 +46,6 @@ class LfsrInjector(val lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   }
 
   io.scan.out := difficulty(0)
-
-  when (fire) {
-    printf(s"[info] $name fire\n")
-  }
 
   when (enabled && RegNext(!enabled)) {
     printf(s"""|[info] $name enabled

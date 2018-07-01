@@ -31,14 +31,14 @@ class LfsrInjectSpec extends ChiselFlatSpec {
 
   it should "map 1.0 probability should to maxValue" in {
     val x = Difficulty(width = 23)
-    x.bind(0.0)
-    backToInt(x) should be (0)
+    x.bind(1.0)
+    backToInt(x) should be (x.maxValue)
   }
 
   it should "map 0.0 probability to 0" in {
     val x = Difficulty(width = 23)
-    x.bind(1.0)
-    backToInt(x) should be (x.maxValue)
+    x.bind(0.0)
+    backToInt(x) should be (0)
   }
 
   behavior of "LfsrInjectorInfo"
@@ -114,43 +114,37 @@ class LfsrInjectSpec extends ChiselFlatSpec {
 
   /** Checks that the expected probability matches the observed
     * probability */
-  class ProbabilisticTester(dut: LfsrInjector, p: Double) extends LfsrTester(dut) {
+  class ProbabilisticTester(dut: LfsrInjector, probability: Double) extends LfsrTester(dut) {
     val info = LfsrInjectorInfo(1, dut.lfsrWidth)
 
     info.fields.foreach{
       case s: Seed => s.bind(1)
-      case d: Difficulty => d.bind(p)
+      case d: Difficulty => d.bind(probability)
     }
 
     poke(dut.io.scan.en, 0)
     poke(dut.io.in, 0)
-    println(info.serialize())
     load(info)
     poke(dut.io.scan.en, 1)
     step(1)
     poke(dut.io.scan.en, 0)
-    val iterations = math.pow(2, dut.lfsrWidth).toInt
+    val iterations = math.pow(2, dut.lfsrWidth).toInt - 1
     var faultCount: BigInt = 0
-    for (i <- 0 to iterations - 2) {
+    for (i <- 0 to iterations - 1) {
       faultCount += peek(dut.io.out)
       step(1)
     }
     poke(dut.io.scan.en, 1)
     step(1)
-    println(s"Saw $faultCount faults")
+    println(s"Saw $faultCount faults in $iterations iterations")
+    val expectedFaults = probability * iterations
+    println(s"Expected faults: $expectedFaults")
+    assert(expectedFaults.floor == faultCount, "Expected faults didn't match measured faults")
   }
 
-  ignore should "always fire for minimum difficulty" in {
-    Driver(() => new LfsrInjector(8, "dummy")) { dut => new ProbabilisticTester(dut, 0.0) }
-  }
-
-  ignore should "never fire for maximum difficulty" in {
-    Driver(() => new LfsrInjector(8, "dummy")) { dut => new ProbabilisticTester(dut, 0.0) }
-  }
-
-  it should "fire with ~50% probability with 50% difficulty" in {
-    Driver(() => new LfsrInjector(6, "dummy")) { dut => new ProbabilisticTester(dut, 0.25) }
-  }
-
-  it should "generate pseudo random faults when enabled" in (pending)
+  Range(0, 11).map(_ / 10.0).map( probability =>
+    it should s"fire expectedly for probability $probability" in {
+      Driver(() => new LfsrInjector(8, "dummy")) { dut => new ProbabilisticTester(dut, probability) }
+    }
+  )
 }
