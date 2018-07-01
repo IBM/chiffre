@@ -13,12 +13,42 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.{ScanFieldException, ScanField}
-import chiffre.inject.{Seed, Difficulty, LfsrInjectorInfo, InjectorLike, LfsrInjector}
+import chiffre.ScanFieldException
+import chiffre.inject.{Seed, Difficulty, LfsrInjectorInfo, LfsrInjector}
 import chiffreTests.ChiffreSpecUtils.backToInt
-import chisel3.iotesters.{ChiselFlatSpec, PeekPokeTester, Driver}
+import chisel3.iotesters.{ChiselFlatSpec, Driver}
 
 import scala.collection.mutable.StringBuilder
+
+/** Checks that the expected probability matches the observed
+  * probability */
+class ProbabilisticTester(dut: LfsrInjector, probability: Double) extends InjectorTester(dut) {
+  val info = LfsrInjectorInfo(1, dut.lfsrWidth)
+
+  info.fields.foreach{
+    case s: Seed => s.bind(1)
+    case d: Difficulty => d.bind(probability)
+  }
+
+  poke(dut.io.scan.en, 0)
+  poke(dut.io.in, 0)
+  load(info)
+  poke(dut.io.scan.en, 1)
+  step(1)
+  poke(dut.io.scan.en, 0)
+  val iterations = math.pow(2, dut.lfsrWidth).toInt - 1
+  var faultCount: BigInt = 0
+  for (i <- 0 to iterations - 1) {
+    faultCount += peek(dut.io.out)
+    step(1)
+  }
+  poke(dut.io.scan.en, 1)
+  step(1)
+  println(s"Saw $faultCount faults in $iterations iterations")
+  val expectedFaults = probability * iterations
+  println(s"Expected faults: $expectedFaults")
+  assert(expectedFaults.floor == faultCount, "Expected faults didn't match measured faults")
+}
 
 class LfsrInjectSpec extends ChiselFlatSpec {
   behavior of "Difficulty ScanField"
@@ -54,92 +84,8 @@ class LfsrInjectSpec extends ChiselFlatSpec {
 
   behavior of "LfsrInjector"
 
-  class LfsrTester(dut: LfsrInjector) extends PeekPokeTester(dut) {
-    case class Chunk(width: Int) extends ScanField
-
-    def load(bitString: String): String = {
-      val out = new StringBuilder(bitString.size)
-      bitString.map(x => s"$x".toInt).foreach{ bit =>
-        poke(dut.io.scan.clk, 0)
-        poke(dut.io.scan.in, bit)
-        out ++= peek(dut.io.scan.out).toString
-        step(1)
-        poke(dut.io.scan.clk, 1)
-        step(1)
-      }
-      poke(dut.io.scan.clk, 0)
-      out.toString
-    }
-
-    def load(in: Chunk): Chunk = {
-      val out = in.copy()
-      out.bind(BigInt(load(in.toBits).reverse.toString, 2))
-      out
-    }
-
-    def load(in: LfsrInjectorInfo): LfsrInjectorInfo = {
-      var outS: String = load(in.toBits.reverse).reverse.toString
-      val out = in.copy()
-      out.fields.foreach{ f =>
-        val (car, cdr) = outS.splitAt(f.width)
-        f.bind(BigInt(car, 2))
-        outS = cdr
-      }
-      out
-    }
-  }
-
-  class LfsrCycleTester(dut: LfsrInjector) extends LfsrTester(dut) {
-    val ones = new Chunk(dut.info.width)
-    ones.bind(ones.maxValue)
-
-    val zeros = new Chunk(dut.info.width)
-    zeros.bind(0)
-
-    poke(dut.io.scan.en, 0)
-    load(ones)
-    val outOnes = load(zeros)
-    assert(outOnes == ones)
-    assert(outOnes != zeros)
-
-    val outZeros = load(zeros)
-    assert(outZeros == zeros)
-    assert(outZeros != ones)
-    assert(outZeros != outOnes)
-  }
-
   it should "be able to cycle a configuration" in {
-    Driver(() => new LfsrInjector(4, "dummy")) { dut => new LfsrCycleTester(dut) }
-  }
-
-  /** Checks that the expected probability matches the observed
-    * probability */
-  class ProbabilisticTester(dut: LfsrInjector, probability: Double) extends LfsrTester(dut) {
-    val info = LfsrInjectorInfo(1, dut.lfsrWidth)
-
-    info.fields.foreach{
-      case s: Seed => s.bind(1)
-      case d: Difficulty => d.bind(probability)
-    }
-
-    poke(dut.io.scan.en, 0)
-    poke(dut.io.in, 0)
-    load(info)
-    poke(dut.io.scan.en, 1)
-    step(1)
-    poke(dut.io.scan.en, 0)
-    val iterations = math.pow(2, dut.lfsrWidth).toInt - 1
-    var faultCount: BigInt = 0
-    for (i <- 0 to iterations - 1) {
-      faultCount += peek(dut.io.out)
-      step(1)
-    }
-    poke(dut.io.scan.en, 1)
-    step(1)
-    println(s"Saw $faultCount faults in $iterations iterations")
-    val expectedFaults = probability * iterations
-    println(s"Expected faults: $expectedFaults")
-    assert(expectedFaults.floor == faultCount, "Expected faults didn't match measured faults")
+    Driver(() => new LfsrInjector(4, "dummy")) { dut => new InjectorCycleTester(dut) }
   }
 
   Range(0, 11).map(_ / 10.0).map( probability =>
