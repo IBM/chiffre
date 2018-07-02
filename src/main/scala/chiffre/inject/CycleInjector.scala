@@ -27,12 +27,12 @@ case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int) extends InjectorInf
   val fields = Seq(Cycle(cycleWidth), CycleInject(bitWidth))
 }
 
-class CycleInjector(n: Int, cycleWidth: Int) extends Injector(n) {
+class CycleInjector(bitWidth: Int, cycleWidth: Int) extends Injector(bitWidth) {
   val cycleTarget = Reg(UInt(cycleWidth.W))
   val cycleCounter = Reg(UInt(cycleWidth.W))
-  val flipMask = Reg(UInt(n.W))
+  val flipMask = Reg(UInt(bitWidth.W))
 
-  lazy val info = CycleInjectorInfo(n, cycleWidth)
+  lazy val info = CycleInjectorInfo(bitWidth, cycleWidth)
 
   val fire = enabled & (cycleCounter === cycleTarget)
   io.out := Mux(fire, io.in ^ flipMask, io.in)
@@ -66,5 +66,5 @@ class CycleInjector(n: Int, cycleWidth: Int) extends Injector(n) {
 }
 
 // scalastyle:off magic.number
-class CycleInjector32(n: Int, val scanId: String) extends CycleInjector(n, 32) with ChiffreInjector
+class CycleInjector32(bitWidth: Int, val scanId: String) extends CycleInjector(bitWidth, 32) with ChiffreInjector
 // scalastyle:on magic.number

@@ -13,7 +13,8 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chisel3.iotesters.ChiselFlatSpec
+import chiffre.inject.StuckAtInjector
+import chisel3.iotesters.{ChiselFlatSpec, Driver}
 
 class StuckAtInjectorSpec extends ChiselFlatSpec {
   behavior of "StuckAtInjectorInfo"
@@ -23,6 +24,8 @@ class StuckAtInjectorSpec extends ChiselFlatSpec {
 
   behavior of "StuckAtInjector"
 
-  it should "be able to cycle a configuration" in (pending)
+  it should "be able to cycle a configuration" in {
+    Driver(() => new StuckAtInjector(16)) { dut => new InjectorCycleTester(dut) }
+  }
   it should "make a signal stuck when enabled" in (pending)
 }

@@ -13,8 +13,27 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.inject.{CycleInjectorInfo, CycleInjector}
+import chiffre.inject.{CycleInjectorInfo, CycleInjector, Cycle, CycleInject}
 import chisel3.iotesters.{ChiselFlatSpec, Driver}
+
+class TimingTester(dut: CycleInjector, time: Int) extends InjectorTester(dut) {
+  val info = dut.info.copy()
+
+  info.fields.foreach{
+    case c: Cycle => c.bind(time)
+    case i: CycleInject => i.bind(1)
+  }
+
+  poke(dut.io.scan.en, 0)
+  poke(dut.io.in, 0)
+  load(info.toBits.reverse)
+  poke(dut.io.scan.en, 1)
+  step(1)
+  poke(dut.io.scan.en, 0)
+  step(time)
+  val fault = peek(dut.io.out)
+  assert(fault == 1, s"Expected fault $time cycles after enabling, but no fault observed")
+}
 
 class CycleInjectorSpec extends ChiselFlatSpec {
   behavior of "CycleInjectorInfo"
@@ -35,5 +54,7 @@ class CycleInjectorSpec extends ChiselFlatSpec {
     Driver(() => new CycleInjector(4, 8)) { dut => new InjectorCycleTester(dut) }
   }
 
-  it should "inject with a delay after being enabled" in (pending)
+  it should "inject with a delay after being enabled" in {
+    Driver(()  => new CycleInjector(4, 8)) { dut => new TimingTester(dut, 42) }
+  }
 }

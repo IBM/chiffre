@@ -14,7 +14,7 @@
 package chiffreTests.inject
 
 import chiffre.ScanField
-import chiffre.inject.{LfsrInjectorInfo, LfsrInjector, Injector}
+import chiffre.inject.{Injector, LfsrInjectorInfo}
 import chisel3.iotesters.PeekPokeTester
 
 case class Chunk(width: Int) extends ScanField
@@ -68,11 +68,8 @@ class InjectorCycleTester[T <: Injector](dut: T) extends InjectorTester(dut) {
   poke(dut.io.scan.en, 0)
   load(ones)
   val outOnes = load(zeros)
-  assert(outOnes == ones)
-  assert(outOnes != zeros)
+  assert(outOnes == ones, "Expected all ones at output, got something else")
 
   val outZeros = load(zeros)
-  assert(outZeros == zeros)
-  assert(outZeros != ones)
-  assert(outZeros != outOnes)
+  assert(outZeros == zeros, "Expected all zeros at output, got something else")
 }

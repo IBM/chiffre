@@ -97,6 +97,5 @@ class LfsrInjectSpec extends ChiselFlatSpec {
 
   behavior of "LfsrInjectorN"
 
-  it should "be able to cycle a configuration" in {
-  }
+  it should "be connected to a Chiffre controller" in (pending)
 }
