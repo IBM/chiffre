@@ -29,7 +29,7 @@ class TimingTester(dut: CycleInjector, time: Int) extends InjectorTester(dut) {
 
   poke(dut.io.scan.en, 0)
   poke(dut.io.in, correct)
-  load(info.toBits.reverse)
+  load(info)
   poke(dut.io.scan.en, 1)
   step(1)
   poke(dut.io.scan.en, 0)

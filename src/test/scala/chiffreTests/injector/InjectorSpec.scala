@@ -13,16 +13,16 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.ScanField
+import chiffre.{ScanField, InjectorInfo}
 import chiffre.inject.{Injector, LfsrInjectorInfo}
 import chisel3.iotesters.PeekPokeTester
 
 case class Chunk(width: Int) extends ScanField
 
 class InjectorTester[T <: Injector](dut: T) extends PeekPokeTester(dut) {
-  def load(bitString: String): String = {
+  private def load(bitString: String): String = {
     val out = new StringBuilder(bitString.size)
-    bitString.map(x => s"$x".toInt).foreach{ bit =>
+    bitString.reverse.map(x => s"$x".toInt).foreach{ bit =>
       poke(dut.io.scan.clk, 0)
       poke(dut.io.scan.in, bit)
       out ++= peek(dut.io.scan.out).toString
@@ -34,20 +34,11 @@ class InjectorTester[T <: Injector](dut: T) extends PeekPokeTester(dut) {
     out.toString
   }
 
+  def load(in: InjectorInfo): String = load(in.toBits)
+
   def load(in: Chunk): Chunk = {
     val out = in.copy()
-    out.bind(BigInt(load(in.toBits).reverse.toString, 2))
-    out
-  }
-
-  def load(in: LfsrInjectorInfo): LfsrInjectorInfo = {
-    var outS: String = load(in.toBits.reverse).reverse.toString
-    val out = in.copy()
-    out.fields.foreach{ f =>
-      val (car, cdr) = outS.splitAt(f.width)
-      f.bind(BigInt(car, 2))
-      outS = cdr
-    }
+    out.bind(BigInt(load(in.toBits), 2))
     out
   }
 }
