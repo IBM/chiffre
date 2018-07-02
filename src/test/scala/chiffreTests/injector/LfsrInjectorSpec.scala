@@ -90,7 +90,7 @@ class LfsrInjectSpec extends ChiselFlatSpec {
   }
 
   Range(0, 11).map(_ / 10.0).map( probability =>
-    it should s"fire expectedly for probability $probability" in {
+    it should s"fire expectedly for ${probability * 100}% probability" in {
       Driver(() => new LfsrInjector(8)) { dut => new ProbabilisticTester(dut, probability) }
     }
   )
