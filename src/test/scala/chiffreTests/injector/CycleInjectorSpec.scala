@@ -13,8 +13,8 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.inject.CycleInjectorInfo
-import chisel3.iotesters.ChiselFlatSpec
+import chiffre.inject.{CycleInjectorInfo, CycleInjector}
+import chisel3.iotesters.{ChiselFlatSpec, Driver}
 
 class CycleInjectorSpec extends ChiselFlatSpec {
   behavior of "CycleInjectorInfo"
@@ -31,6 +31,9 @@ class CycleInjectorSpec extends ChiselFlatSpec {
 
   behavior of "CycleInjector"
 
-  it should "be able to cycle a configuration" in (pending)
+  it should "be able to cycle a configuration" in {
+    Driver(() => new CycleInjector(4, 8)) { dut => new InjectorCycleTester(dut) }
+  }
+
   it should "inject with a delay after being enabled" in (pending)
 }

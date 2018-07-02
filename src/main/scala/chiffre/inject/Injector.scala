@@ -15,6 +15,7 @@ package chiffre.inject
 
 import chisel3._
 import chisel3.util._
+import chisel3.core.BaseModule
 import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
 import chiffre._
 import chiffre.passes._
@@ -28,40 +29,25 @@ sealed class InjectorIo(val n: Int) extends Bundle {
 }
 
 /** The sketch of an injector module */
-sealed abstract class InjectorLike(n: Int, id: String) extends Module
-    with AddsScanState {
+abstract class Injector(n: Int) extends Module with HasScanState {
   val io = IO(new InjectorIo(n))
   val enabled = RegInit(false.B)
   when (io.scan.en) { enabled := ~enabled }
 }
 
-/** An injector that does not add its bits to the scan chain. Extend
-  * this to make smaller injectors wrapped by a bigger [[Injector]]
-  * that adds this module's bits to the chain, cf.
-  * [[InjectorBitwise]].
-  */
-abstract class InjectorPrimitive(n: Int, id: String) extends InjectorLike(n, id)
-
-/** An injector that adds bits to the scan chain */
-abstract class Injector(n: Int, id: String) extends InjectorLike(n, id) {
-  if (info == null) { // scalastyle:off
-    throw new FaultInstrumentationException(
-      "Children of Injector must use a `lazy val` for abstract member `info`") }
+trait ChiffreInjector { this: Injector =>
+  val scanId: String
   experimental.annotate {
     val x = this
     new ChiselAnnotation with RunFirrtlTransform {
-      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, id, info)
+      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
       def transformClass = classOf[ScanChainTransform]
     }}
 }
 
-/** A one-bit injector primmitive */
-abstract class OneBitInjector(id: String) extends InjectorPrimitive(1, id)
-
 /** An injector composed of individual single-bit injectors */
-abstract class InjectorBitwise(n: Int, id: String, gen: => OneBitInjector)
-    extends Injector(n, id) {
-  lazy val injectors = Seq.fill(n)(Module(gen))
+abstract class InjectorBitwise(bitWidth: Int, gen: => Injector) extends Injector(bitWidth) {
+  lazy val injectors = Seq.fill(bitWidth)(Module(gen))
 
   var scanLast = io.scan.in
   injectors

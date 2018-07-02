@@ -27,7 +27,7 @@ case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo 
   val fields = Seq.fill(bitWidth)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth))).flatten
 }
 
-class LfsrInjector(val lfsrWidth: Int, id: String) extends OneBitInjector(id) {
+sealed class LfsrInjector(val lfsrWidth: Int) extends Injector(1) {
   val difficulty = RegInit(0.U(lfsrWidth.W))
   val seed = RegInit(1.U(lfsrWidth.W))
   lazy val info = LfsrInjectorInfo(1, lfsrWidth)
@@ -59,7 +59,9 @@ class LfsrInjector(val lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   }
 }
 
-class LfsrInjector32(n: Int, id: String)
-    extends InjectorBitwise(n, id, new LfsrInjector(32, id)) { // scalastyle:off
-  lazy val info = LfsrInjectorInfo(n, 32) // scalastyle:off
+class LfsrInjectorN(bitWidth: Int, val lfsrWidth: Int, val scanId: String) extends
+    InjectorBitwise(bitWidth, new LfsrInjector(bitWidth)) with ChiffreInjector {
+  lazy val info = LfsrInjectorInfo(bitWidth, lfsrWidth)
 }
+
+class LfsrInjector32(bitWidth: Int, scanId: String) extends LfsrInjectorN(bitWidth, 32, scanId)

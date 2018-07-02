@@ -77,6 +77,7 @@ class LfsrInjectSpec extends ChiselFlatSpec {
     val x = LfsrInjectorInfo(512, 1024)
     x.name should be ("lfsr1024")
   }
+
   it should "be the expected width" in {
     val x = LfsrInjectorInfo(2048, 4096)
     x.width should be (2048 * 4096 * 2)
@@ -85,12 +86,17 @@ class LfsrInjectSpec extends ChiselFlatSpec {
   behavior of "LfsrInjector"
 
   it should "be able to cycle a configuration" in {
-    Driver(() => new LfsrInjector(4, "dummy")) { dut => new InjectorCycleTester(dut) }
+    Driver(() => new LfsrInjector(4)) { dut => new InjectorCycleTester(dut) }
   }
 
   Range(0, 11).map(_ / 10.0).map( probability =>
     it should s"fire expectedly for probability $probability" in {
-      Driver(() => new LfsrInjector(8, "dummy")) { dut => new ProbabilisticTester(dut, probability) }
+      Driver(() => new LfsrInjector(8)) { dut => new ProbabilisticTester(dut, probability) }
     }
   )
+
+  behavior of "LfsrInjectorN"
+
+  it should "be able to cycle a configuration" in {
+  }
 }

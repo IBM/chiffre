@@ -14,12 +14,12 @@
 package chiffreTests.inject
 
 import chiffre.ScanField
-import chiffre.inject.{LfsrInjectorInfo, LfsrInjector, InjectorLike}
+import chiffre.inject.{LfsrInjectorInfo, LfsrInjector, Injector}
 import chisel3.iotesters.PeekPokeTester
 
 case class Chunk(width: Int) extends ScanField
 
-class InjectorTester[T <: InjectorLike](dut: T) extends PeekPokeTester(dut) {
+class InjectorTester[T <: Injector](dut: T) extends PeekPokeTester(dut) {
   def load(bitString: String): String = {
     val out = new StringBuilder(bitString.size)
     bitString.map(x => s"$x".toInt).foreach{ bit =>
@@ -56,7 +56,9 @@ class InjectorTester[T <: InjectorLike](dut: T) extends PeekPokeTester(dut) {
   *
   * @param dut an injector to be tested
   */
-class InjectorCycleTester[T <: InjectorLike](dut: T) extends InjectorTester(dut) {
+class InjectorCycleTester[T <: Injector](dut: T) extends InjectorTester(dut) {
+  val scanId = "dummy"
+
   val ones = new Chunk(dut.info.width)
   ones.bind(ones.maxValue)
 

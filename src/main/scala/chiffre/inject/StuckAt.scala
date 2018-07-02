@@ -27,11 +27,11 @@ case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
   val fields = Seq(Mask(bitWidth), StuckAt(bitWidth))
 }
 
-class StuckAtInjector(n: Int, id: String) extends Injector(n, id) {
-  val mask = Reg(UInt(n.W))
-  val value = Reg(UInt(n.W))
+class StuckAtInjector(bitWidth: Int) extends Injector(bitWidth) {
+  val mask = Reg(UInt(bitWidth.W))
+  val value = Reg(UInt(bitWidth.W))
 
-  lazy val info = StuckAtInjectorInfo(n)
+  lazy val info = StuckAtInjectorInfo(bitWidth)
 
   val select = mask & Fill(mask.getWidth, enabled)
   io.out := (io.in & ~select) | (value & select)
@@ -53,5 +53,11 @@ class StuckAtInjector(n: Int, id: String) extends Injector(n, id) {
 
   when (io.scan.en && enabled) {
     printf(s"[info] $name disabled\n")
+  }
+}
+
+object StuckAtInjector {
+  def apply(bitWidth: Int, scanChainId: String) = new StuckAtInjector(bitWidth) with ChiffreInjector {
+    val scanId = scanChainId
   }
 }
