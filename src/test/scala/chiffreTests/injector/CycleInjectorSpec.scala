@@ -19,20 +19,31 @@ import chisel3.iotesters.{ChiselFlatSpec, Driver}
 class TimingTester(dut: CycleInjector, time: Int) extends InjectorTester(dut) {
   val info = dut.info.copy()
 
-  info.fields.foreach{
+  info.fields.foreach {
     case c: Cycle => c.bind(time)
-    case i: CycleInject => i.bind(1)
+    case i: CycleInject => i.bind(i.maxValue)
   }
 
+  val correct = 1
+  val faulty = info.fields.collectFirst{ case c: CycleInject => c }.get.maxValue ^ correct
+
   poke(dut.io.scan.en, 0)
-  poke(dut.io.in, 0)
+  poke(dut.io.in, correct)
   load(info.toBits.reverse)
   poke(dut.io.scan.en, 1)
   step(1)
   poke(dut.io.scan.en, 0)
   step(time)
   val fault = peek(dut.io.out)
-  assert(fault == 1, s"Expected fault $time cycles after enabling, but no fault observed")
+  assert(fault == faulty, s"Expected fault $time cycles after enabling, but no fault observed")
+  step(1)
+
+  var additionalFaults: BigInt = 0
+  for (i <- 0 until math.pow(2, dut.cycleWidth).toInt) {
+    additionalFaults += peek(dut.io.out) ^ correct
+    step(1)
+  }
+  assert(additionalFaults == 0, "Saw additional faults after first fault")
 }
 
 class CycleInjectorSpec extends ChiselFlatSpec {
@@ -50,11 +61,11 @@ class CycleInjectorSpec extends ChiselFlatSpec {
 
   behavior of "CycleInjector"
 
-  it should "be able to cycle a configuration" in {
-    Driver(() => new CycleInjector(4, 8)) { dut => new InjectorCycleTester(dut) }
+  it should "be able to cycle a configuration with 1-bit fields" in {
+    Driver(() => new CycleInjector(1, 1)) { dut => new InjectorCycleTester(dut) }
   }
 
-  it should "inject with a delay after being enabled" in {
-    Driver(()  => new CycleInjector(4, 8)) { dut => new TimingTester(dut, 42) }
+  it should "inject with a delay after being enabled, then disable itself" in {
+    Driver(()  => new CycleInjector(13, 8)) { dut => new TimingTester(dut, 42) }
   }
 }

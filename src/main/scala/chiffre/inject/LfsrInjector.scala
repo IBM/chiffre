@@ -41,8 +41,8 @@ sealed class LfsrInjector(val lfsrWidth: Int) extends Injector(1) {
 
   when (io.scan.clk) {
     enabled := false.B
-    seed := io.scan.in ## (seed >> 1)
-    difficulty := seed(0) ## (difficulty >> 1)
+    seed := (io.scan.in ## seed) >> 1
+    difficulty := (seed(0) ## difficulty) >> 1
   }
 
   io.scan.out := difficulty(0)

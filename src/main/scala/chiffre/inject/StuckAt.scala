@@ -38,8 +38,8 @@ class StuckAtInjector(bitWidth: Int) extends Injector(bitWidth) {
 
   when (io.scan.clk) {
     enabled := false.B
-    mask := io.scan.in ## (mask >> 1)
-    value := mask(0) ## (value >> 1)
+    mask := (io.scan.in ## mask) >> 1
+    value := (mask(0) ## value) >> 1
   }
 
   io.scan.out := value(0)

@@ -27,7 +27,7 @@ case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int) extends InjectorInf
   val fields = Seq(Cycle(cycleWidth), CycleInject(bitWidth))
 }
 
-class CycleInjector(bitWidth: Int, cycleWidth: Int) extends Injector(bitWidth) {
+class CycleInjector(bitWidth: Int, val cycleWidth: Int) extends Injector(bitWidth) {
   val cycleTarget = Reg(UInt(cycleWidth.W))
   val cycleCounter = Reg(UInt(cycleWidth.W))
   val flipMask = Reg(UInt(bitWidth.W))
@@ -44,24 +44,25 @@ class CycleInjector(bitWidth: Int, cycleWidth: Int) extends Injector(bitWidth) {
   when (io.scan.clk) {
     enabled := false.B
     cycleCounter := 0.U
-    cycleTarget := io.scan.in ## (cycleTarget >> 1)
-    flipMask := cycleTarget(0) ## (flipMask >> 1)
+    cycleTarget := (io.scan.in ## cycleTarget) >> 1
+    flipMask := (cycleTarget(0) ## flipMask) >> 1
   }
   io.scan.out := flipMask(0)
 
-  when (io.scan.en && !enabled) {
+  when (enabled && RegNext(!enabled)) {
     printf(s"""|[info] $name enabled
                |[info]   - target: 0x%x
                |[info]   - mask: 0x%x
                |""".stripMargin, cycleTarget, flipMask)
   }
 
-  when (io.scan.en && enabled) {
+  when (!enabled && RegNext(enabled)) {
     printf(s"[info] $name disabled\n")
   }
 
   when (fire) {
-    printf(s"[info] $name injecting!\n")
+    printf(s"[info] $name injecting 0x%x into 0x%x to output 0x%x!\n", flipMask, io.in, io.out)
+    enabled := false.B
   }
 }
 
