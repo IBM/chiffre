@@ -15,9 +15,9 @@ package chiffre.passes
 
 import firrtl._
 import firrtl.ir._
-import firrtl.passes._
+import firrtl.passes.{PassException, ToWorkingIR}
 import firrtl.passes.wiring.SinkAnnotation
-import firrtl.annotations._
+import firrtl.annotations.{Annotation, ComponentName, ModuleName, CircuitName}
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
 

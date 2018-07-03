@@ -15,10 +15,9 @@ package chiffre.passes
 
 import firrtl._
 import firrtl.ir._
-import firrtl.passes._
+import firrtl.passes.PassException
 import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName, SingleTargetAnnotation, Annotation}
-import firrtl.annotations.AnnotationUtils._
 import chiffre.InjectorInfo
 import chiffre.scan.{ScanChain, FaultyComponent, JsonProtocol}
 

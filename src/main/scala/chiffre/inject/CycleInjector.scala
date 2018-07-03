@@ -14,8 +14,7 @@
 package chiffre.inject
 
 import chisel3._
-import chisel3.util._
-import chiffre.scan._
+import chiffre.ChiffreInjector
 
 import chiffre.{InjectorInfo, ScanField, HasName, HasWidth}
 

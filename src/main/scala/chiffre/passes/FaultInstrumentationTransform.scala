@@ -14,8 +14,9 @@
 package chiffre.passes
 
 import firrtl._
-import firrtl.passes._
-import firrtl.annotations._
+import firrtl.passes.{ToWorkingIR, InferTypes, Uniquify, ExpandWhens, CheckInitialization, ResolveKinds, ResolveGenders,
+  CheckTypes}
+import firrtl.annotations.{SingleTargetAnnotation, ComponentName}
 import scala.collection.mutable
 
 sealed trait FaultAnnos

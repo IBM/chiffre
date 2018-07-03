@@ -14,12 +14,10 @@
 package chiffre.inject
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.Cat
 import chisel3.core.BaseModule
 import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
-import chiffre._
-import chiffre.passes._
-import chiffre.scan._
+import chiffre.{ScanIo, HasScanState}
 
 /** An injector interface */
 sealed class InjectorIo(val n: Int) extends Bundle {
@@ -33,16 +31,6 @@ abstract class Injector(n: Int) extends Module with HasScanState {
   val io = IO(new InjectorIo(n))
   val enabled = RegInit(false.B)
   when (io.scan.en) { enabled := ~enabled }
-}
-
-trait ChiffreInjector { this: Injector =>
-  val scanId: String
-  experimental.annotate {
-    val x = this
-    new ChiselAnnotation with RunFirrtlTransform {
-      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
-      def transformClass = classOf[ScanChainTransform]
-    }}
 }
 
 /** An injector composed of individual single-bit injectors */

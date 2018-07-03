@@ -14,13 +14,13 @@
 package chiffre
 
 import chisel3._
-import chisel3.util._
 import chisel3.core.BaseModule
 import chisel3.internal.InstanceId
 import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform}
 import chiffre.passes.{ScanChainAnnotation, FaultInjectionAnnotation,
   ScanChainTransform, FaultInstrumentationTransform}
-import chiffre.scan._
+import chiffre.inject.Injector
+import chiffre.passes.ScanChainDescriptionAnnotation
 
 trait ChiffreController extends BaseModule {
   self: BaseModule =>
@@ -49,11 +49,21 @@ trait ChiffreController extends BaseModule {
   scanMaster(scan, scanId)
 }
 
+trait ChiffreInjector { this: Injector =>
+  val scanId: String
+
+  experimental.annotate {
+    val x = this
+    new ChiselAnnotation with RunFirrtlTransform {
+      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
+      def transformClass = classOf[ScanChainTransform]
+    }}
+}
+
 trait ChiffreInjectee extends BaseModule {
   self: BaseModule =>
 
-  def isFaulty[T <: inject.Injector](component: InstanceId, id: String,
-                                     tpe: Class[T]): Unit = {
+  def isFaulty[T <: Injector](component: InstanceId, id: String, tpe: Class[T]): Unit = {
     component match {
       case c: Bits =>
         annotate(
