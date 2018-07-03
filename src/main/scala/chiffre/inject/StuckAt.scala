@@ -27,7 +27,7 @@ case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
   val fields = Seq(Mask(bitWidth), StuckAt(bitWidth))
 }
 
-class StuckAtInjector(bitWidth: Int) extends Injector(bitWidth) {
+class StuckAtInjector(val bitWidth: Int) extends Injector(bitWidth) {
   val mask = Reg(UInt(bitWidth.W))
   val value = Reg(UInt(bitWidth.W))
 

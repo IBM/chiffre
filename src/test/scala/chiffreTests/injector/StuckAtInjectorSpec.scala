@@ -13,19 +13,59 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.inject.StuckAtInjector
+import chiffre.inject.{StuckAtInjector, StuckAtInjectorInfo, Mask, StuckAt}
 import chisel3.iotesters.{ChiselFlatSpec, Driver}
+
+class StuckAtTester(dut: StuckAtInjector) extends InjectorTester(dut) {
+  require(dut.bitWidth == 8)
+  val mask = BigInt("11110000", 2)
+  val stuckAt = BigInt("00110000", 2)
+  val in = BigInt("01010101", 2)
+  val faulty = BigInt("00110101", 2)
+
+  dut.info.fields.foreach {
+    case m: Mask => m.bind(mask)
+    case s: StuckAt => s.bind(stuckAt)
+  }
+
+  poke(dut.io.scan.en, 0)
+  poke(dut.io.in, in)
+  load(dut.info)
+  poke(dut.io.scan.en, 1)
+  step(1)
+  poke(dut.io.scan.en, 0)
+  step(1)
+
+  val fault = peek(dut.io.out)
+  assert(fault == faulty, s"Expected to see $faulty, but got $fault")
+
+  poke(dut.io.scan.en, 1)
+  step(1)
+  poke(dut.io.scan.en, 0)
+  val noFault = peek(dut.io.out)
+  assert(noFault == in, s"Expected to see $in, but got $noFault")
+}
 
 class StuckAtInjectorSpec extends ChiselFlatSpec {
   behavior of "StuckAtInjectorInfo"
 
-  it should "generate a sensible name" in (pending)
-  it should "be the expected width" in (pending)
+  it should "generate a sensible name" in {
+    val x = StuckAtInjectorInfo(9001)
+    x.name should be ("stuckAt")
+  }
+
+  it should "be the expected width" in {
+    val x = StuckAtInjectorInfo(1337)
+    x.width should be (1337 * 2)
+  }
 
   behavior of "StuckAtInjector"
 
   it should "be able to cycle a configuration" in {
-    Driver(() => new StuckAtInjector(16)) { dut => new InjectorCycleTester(dut) }
+    Driver(() => new StuckAtInjector(13)) { dut => new InjectorCycleTester(dut) }
   }
-  it should "make a signal stuck when enabled" in (pending)
+
+  it should "make a signal stuck when enabled" in {
+    Driver(() => new StuckAtInjector(8)) { dut => new StuckAtTester(dut) }
+  }
 }
