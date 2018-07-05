@@ -30,9 +30,9 @@ trait ChiffreController extends BaseModule {
   def scanId: String
 
   private def scanMaster(scan: Data, name: String): Unit = {
-    if (scanId == null) { // scalastyle:off
-      throw new Exception(
-        "Chiffre Controller 'scanId' should be a 'lazy val'") }
+    // if (scanId == null) { // scalastyle:off
+    //   throw new Exception(
+    //     "Chiffre Controller 'scanId' should be a 'lazy val'") }
     annotate(
       new ChiselAnnotation with RunFirrtlTransform {
         def toFirrtl = ScanChainAnnotation(

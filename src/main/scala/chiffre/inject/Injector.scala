@@ -20,15 +20,15 @@ import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
 import chiffre.{ScanIo, HasScanState}
 
 /** An injector interface */
-sealed class InjectorIo(val n: Int) extends Bundle {
+sealed class InjectorIo(val bitWidth: Int) extends Bundle {
   val scan = new ScanIo
-  val in = Input(UInt(n.W))
-  val out = Output(UInt(n.W))
+  val in = Input(UInt(bitWidth.W))
+  val out = Output(UInt(bitWidth.W))
 }
 
 /** The sketch of an injector module */
-abstract class Injector(n: Int) extends Module with HasScanState {
-  val io = IO(new InjectorIo(n))
+abstract class Injector(bitWidth: Int) extends Module with HasScanState {
+  val io = IO(new InjectorIo(bitWidth))
   val enabled = RegInit(false.B)
   when (io.scan.en) { enabled := ~enabled }
 }
