@@ -159,79 +159,42 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                 ComponentName(s"$defi.io.scan.$s",
                               ModuleName(m.name, CircuitName(c.main))) )
 
-            val x = mods(m.name)
-            t match {
-              case _: GroundType =>
-                mods(m.name) = x.copy(
-                  defines = DefInstance(NoInfo, defi, subcir.main) +:
-                    x.defines :+ DefWire(NoInfo, rename, t),
-                  connects = x.connects ++ Seq(
-                    Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
-                    Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
-                    Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
-                    Connect(NoInfo, toExp(rename), castRhs(t, toExp(s"$defi.io.out"))),
-                    IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
-                    IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
-                    IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
-                  ),
-                  modules = x.modules ++ defms,
-                  annotations = x.annotations ++ annosx ++ Seq(
-                    SinkAnnotation(scanEn, "scan_en"),
-                    SinkAnnotation(scanClk, "scan_clk"),
-                    ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
-                    ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
-                    ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
-                  ),
-                  renames = x.renames ++ Map(comp.name -> rename)
-                )
-              case _: BundleType =>
-                def hiercat(name: String, tpe: Type): Expression = tpe match {
-                  case _: GroundType => toExp(name)
-                  case b: BundleType => seqCat(b.fields.map((f: Field) => hiercat(s"${name}.${f.name}", f.tpe)))
-                  case _ => throw new FaultInstrumentationException(
-                    "[todo] Only GroundType and BundleType components are instrumentable")
-                }
-                def hierconn(lhs: String, rhs: String, tpe: Type, offset: BigInt = 0): Seq[Statement] = tpe match {
-                  case g: GroundType =>
-                    val slice = DoPrim(PrimOps.Bits, Seq(toExp(rhs)), Seq(offset + bitWidth(g) - 1, offset), g)
-                    val conn = Connect(NoInfo, toExp(lhs), slice)
-                    Seq(conn)
-                  case b: BundleType =>
-                    var o = offset
-                    b.fields.map((f: Field) => {
-                      val conns = hierconn(s"${lhs}.${f.name}", rhs, f.tpe, o)
-                      o = o + bitWidth(f.tpe)
-                      conns
-                    }).flatten
-                  case _ => throw new FaultInstrumentationException(
-                    "[todo] Only GroundType and BundleType components are instrumentable")
-                }
+            val wt = classOf[firrtl.passes.wiring.WiringTransform]
+            val st = classOf[chiffre.passes.ScanChainTransform]
 
-                mods(m.name) = x.copy(
-                  defines = DefInstance(NoInfo, defi, subcir.main) +:
-                    x.defines :+ DefWire(NoInfo, rename, t),
-                  connects = x.connects ++ Seq(
-                    Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
-                    Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
-                    Connect(NoInfo, toExp(s"$defi.io.in"), hiercat(comp.name, t)))
-                    ++ hierconn(rename, s"$defi.io.out", t) ++
-                    Seq(IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
-                    IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
-                    IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
-                  ),
-                  modules = x.modules ++ defms,
-                  annotations = x.annotations ++ annosx ++ Seq(
-                    SinkAnnotation(scanEn, "scan_en"),
-                    SinkAnnotation(scanClk, "scan_clk"),
-                    ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
-                    ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
-                    ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
-                  ),
-                  renames = x.renames ++ Map(comp.name -> rename)
-                )
+            val faulty = DefWire(NoInfo, rename, t)
+            val data = t match {
+              case _: GroundType => Seq(
+                Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
+                Connect(NoInfo, toExp(rename), castRhs(t, toExp(s"$defi.io.out")))
+              )
+              case _: BundleType => fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
+                case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
+                case _ => Seq.empty[Statement]
+              }
               case _ => throw new FaultInstrumentationException(
                 "[todo] Only GroundType and BundleType components are instrumentable")
             }
+            val x = mods(m.name)
+            mods(m.name) = x.copy(
+              defines = DefInstance(NoInfo, defi, subcir.main) +: x.defines :+ faulty,
+              connects = x.connects ++ Seq(
+                Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
+                Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
+                IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
+                IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
+                IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
+              ) ++ data,
+              modules = x.modules ++ defms,
+              annotations = x.annotations ++ annosx ++ Seq(
+                SinkAnnotation(scanEn, "scan_en"),
+                SinkAnnotation(scanClk, "scan_clk"),
+                ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
+                ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
+                ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
+              ),
+              renames = x.renames ++ Map(comp.name -> rename)
+            )
           }
         case m: ExtModule =>
           throw new FaultInstrumentationException(
