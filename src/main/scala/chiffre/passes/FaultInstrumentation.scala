@@ -127,8 +127,9 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
             val width = t match {
               case _: GroundType => getWidth(t)
               case _: BundleType => IntWidth(bitWidth(t))
+              case _: VectorType => IntWidth(bitWidth(t))
               case _ => throw new FaultInstrumentationException(
-                "[todo] Only GroundType and BundleType components are instrumentable")
+                "[todo] Only GroundType, BundleType, and VectorType components are instrumentable")
             }
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
@@ -172,8 +173,12 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                 case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
                 case _ => Seq.empty[Statement]
               }
+              case _: VectorType => fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
+                case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
+                case _ => Seq.empty[Statement]
+              }
               case _ => throw new FaultInstrumentationException(
-                "[todo] Only GroundType and BundleType components are instrumentable")
+                "[todo] Only GroundType, BundleType, and VectorType components are instrumentable")
             }
             val x = mods(m.name)
             mods(m.name) = x.copy(
