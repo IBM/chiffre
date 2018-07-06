@@ -10,70 +10,15 @@ case class ScanChainException(msg: String) extends Exception(msg)
 case class Arguments(
   scanChainFileName: File = new File("."),
   scanChainDir: Option[File] = None,
-  verbose: Boolean = false,
-  probability: Option[Double] = None,
-  seed: Option[Int] = None,
-  mask: Option[BigInt] = None,
-  stuckAt: Option[BigInt] = None,
-  cycle: Option[BigInt] = None,
-  cycleInject: Option[BigInt] = None
+  verbose: Boolean = false
 )
 
 class ScanChainUtils(implicit opt: Arguments) {
-  val rand =
-    if (!opt.seed.isEmpty) new scala.util.Random(opt.seed.get)
-    else new scala.util.Random()
-
   def getLength(s: Seq[FaultyComponent]): Int = s
     .foldLeft(0) { case (lenC, f) => lenC + f.injector.getWidth }
 
   def getComponentNames(s: Seq[FaultyComponent]): Seq[String] = s
     .map(_.name)
-
-  private def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField =
-    f match {
-      case x: ScanField if x.value.nonEmpty => throw new ScanChainException(
-        s"Tried to rebind already bound ScanField $f (name: $name)")
-      case x: Seed => x.copy(value = Some(BigInt(x.width, rand)))
-      case x: Difficulty => x
-          .copy(probability =
-                  Some(opt.probability.getOrElse(
-                         throw new ScanChainException(
-                           s"Unable to determine ScanField value for $f from arguments" )
-                       )))
-      case x: Mask => x
-          .copy(value =
-                  Some(opt.mask.getOrElse(
-                         throw new ScanChainException(
-                           s"Unable to bind mask for $f from arguments"))) )
-      case x: StuckAt => x
-          .copy(value =
-                  Some(opt.stuckAt.getOrElse(
-                         throw new ScanChainException(
-                           s"Unable to bind value for $f from arguments"))) )
-      case x: Cycle => x
-          .copy(value =
-                  Some(opt.cycle.getOrElse(
-                         throw new ScanChainException(
-                           s"Unable to bind value for $f from arguments"))) )
-      case x: CycleInject => x
-          .copy(value =
-                  Some(opt.cycleInject.getOrElse(
-                         throw new ScanChainException(
-                           s"Unable to bind value for $f from arguments"))) )
-      case _ => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
-    }
-
-  private def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): Unit =
-    i.fields = i.fields.map(bind(_, name))
-
-  private def bind(f: FaultyComponent)(implicit opt: Arguments): Unit =
-    bind(f.injector, f.name)
-
-  /* Consume command line options to populate scan chain fields */
-  def bind(s: ScanChain)(implicit opt: Arguments): Unit = s.foreach {
-    case (name, chain) => { chain.foreach { bind(_) } }
-  }
 
   /* Convert a Scan Chain description to a bit string */
   def bitString(c: Seq[FaultyComponent]): String = c.map(_.toBits()).mkString
@@ -135,30 +80,6 @@ object Main extends App {
     opt[File]('o', "output-dir")
       .action( (x, c) => c.copy(scanChainDir = Some(x)) )
       .text("Output directory for scan chain binaries")
-    opt[Double]('p', "probability")
-      .action( (x, c) => c.copy(probability = Some(x)) )
-      .validate( x => if (x >= 0 && x <= 1) success
-                else failure("probability <value> must be on domain [0, 1]") )
-      .text("Default bit flip probability")
-    opt[Int]('s', "seed")
-      .action( (x, c) => c.copy(seed = Some(x)) )
-      .validate( x => if (x >= 0) success
-                else failure("the seed <value> must be greater than or equal to 0") )
-      .text("Random number seed")
-    opt[String]("mask")
-      .action( (x, c) => c.copy(mask = Some(BigInt(x, 16))) )
-      .text("A fault mask (bits that will be given a 'stuck-at' value")
-    opt[String]("stuck-at")
-      .action( (x, c) => c.copy(stuckAt = Some(BigInt(x, 16))) )
-      .text("Stuck at bits to apply")
-    opt[BigInt]("cycle")
-      .action( (x, c) => c.copy(cycle = Some(x) ))
-      .validate( x => if (x >= 0) success
-                else failure("the cycle <value> must be greater than or equal to 0") )
-      .text("The cycle to inject faults")
-    opt[String]("cycle-inject")
-      .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) )
-      .text("Bit string to inject at <cycle>")
     arg[File]("scan.yaml")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
@@ -170,8 +91,6 @@ object Main extends App {
       implicit val opt = x
       val util = new ScanChainUtils
       val chains = JsonProtocol.deserialize(opt.scanChainFileName)
-
-      util.bind(chains)
 
       if (opt.scanChainDir.nonEmpty) {
         val dir = opt.scanChainDir.get
