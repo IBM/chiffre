@@ -33,7 +33,7 @@ case class ScanChainInfo(
   slaveOut: Map[ComponentName, ComponentName] = Map.empty,
   injectors: Map[ComponentName, ModuleName] = Map.empty,
   /* This is keyed by the injector module name */
-  description: Map[ModuleName, InjectorInfo] = Map.empty) {
+  description: Map[ComponentName, InjectorInfo] = Map.empty) {
   // scalastyle:off line.size.limit
   def serialize(tab: String): String =
     s"""|${tab}master:
@@ -48,7 +48,7 @@ case class ScanChainInfo(
   def toScanChain(name: String): ScanChain = {
     val components: Seq[FaultyComponent] = injectors.map{ case(c, m) =>
       val id = s"${c.module.circuit.name}.${c.module.name}.${c.name}"
-      FaultyComponent(id, description(m))
+      FaultyComponent(id, description(c))
     }.toSeq
     Map(name -> components)
   }
@@ -77,11 +77,11 @@ case class ScanChainInjectorAnnotation(
 }
 
 case class ScanChainDescriptionAnnotation(
-  target: ModuleName,
+  target: ComponentName,
   id: String,
-  d: InjectorInfo) extends SingleTargetAnnotation[ModuleName]
+  d: InjectorInfo) extends SingleTargetAnnotation[ComponentName]
     with ScanAnnos {
-  def duplicate(x: ModuleName): ScanChainDescriptionAnnotation =
+  def duplicate(x: ComponentName): ScanChainDescriptionAnnotation =
     this.copy(target = x)
 }
 
@@ -120,9 +120,9 @@ class ScanChainTransform extends Transform {
       case _ =>
     }
     annos.foreach {
-      case ScanChainDescriptionAnnotation(mod, id, d) =>
+      case ScanChainDescriptionAnnotation(comp, id, d) =>
         exceptionIfUnknownId(id)
-        s(id) = s(id).copy(description = s(id).description ++ Map(ModuleName(mod.name, CircuitName(circuit.main)) -> d))
+        s(id) = s(id).copy(description = s(id).description ++ Map(comp -> d))
       case _ =>
     }
     s.toMap

@@ -47,12 +47,6 @@ abstract class Injector(n: Int, id: String) extends InjectorLike(n, id) {
   if (info == null) { // scalastyle:off
     throw new FaultInstrumentationException(
       "Children of Injector must use a `lazy val` for abstract member `info`") }
-  experimental.annotate {
-    val x = this
-    new ChiselAnnotation with RunFirrtlTransform {
-      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, id, info)
-      def transformClass = classOf[ScanChainTransform]
-    }}
 }
 
 /** A one-bit injector primmitive */

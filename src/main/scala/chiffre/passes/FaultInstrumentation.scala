@@ -13,6 +13,7 @@
 // limitations under the License.
 package chiffre.passes
 
+import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
 import firrtl._
 import firrtl.ir._
 import firrtl.passes._
@@ -82,7 +83,7 @@ class FaultInstrumentation(
                annotations = AnnotationSeq(inAnno ++ ax))
   }
 
-  private def inlineCompile(name: String, width: Int, id: String,
+  private def inlineCompile(name: String, comp: ComponentName, width: Int, id: String,
                             ns: Option[Namespace] = None): CircuitState = {
     def genName(name: String, n: Option[Namespace]): String = n match {
       case Some(nn) => nn.newName(name)
@@ -90,10 +91,19 @@ class FaultInstrumentation(
     }
 
     val args = Array[AnyRef](new java.lang.Integer(width), id)
-    val gen = () => Class.forName(name)
-      .getConstructors()(0)
-      .newInstance(args:_*)
-      .asInstanceOf[chisel3.Module]
+    val gen = () => {
+      val injector = Class.forName(name)
+        .getConstructors()(0)
+        .newInstance(args:_*)
+        .asInstanceOf[chiffre.inject.Injector]
+      annotate {
+        new ChiselAnnotation with RunFirrtlTransform {
+          def toFirrtl = ScanChainDescriptionAnnotation(comp, id, injector.info)
+          def transformClass = classOf[ScanChainTransform]
+        }
+      }
+      injector
+    }
     val options =
       new ExecutionOptionsManager("Fault Instrumentation Inline")
           with HasFirrtlOptions
@@ -129,7 +139,7 @@ class FaultInstrumentation(
   private def analyze(c: Circuit): Map[String, Modifications] = {
     val mods = new mutable.HashMap[String, Modifications]
       .withDefaultValue(Modifications())
-    val cmods = new mutable.HashMap[String, CircuitState]()
+    val cmods = new mutable.HashMap[ComponentName, CircuitState]()
     val circuitNamespace = Namespace(c)
 
     c.modules
@@ -150,15 +160,14 @@ class FaultInstrumentation(
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
 
-            val (subcir, defms, annosx) = if (cmods.contains(injector)) {
-              (cmods(injector).circuit, Seq.empty, Seq.empty)
+            val (subcir, defms, annosx) = if (cmods.contains(comp)) {
+              (cmods(comp).circuit, Seq.empty, Seq.empty)
             } else {
-              cmods(injector) = inlineCompile(injector, numBits, id,
-                                              Some(circuitNamespace))
-              (cmods(injector).circuit,
-               cmods(injector).circuit.modules,
-               if (cmods(injector).annotations.isEmpty) { Seq.empty }
-               else { cmods(injector).annotations.toSeq   } )
+              cmods(comp) = inlineCompile(injector, comp, numBits, id, Some(circuitNamespace))
+              (cmods(comp).circuit,
+               cmods(comp).circuit.modules,
+               if (cmods(comp).annotations.isEmpty) { Seq.empty }
+               else { cmods(comp).annotations.toSeq   } )
             }
             val defi = moduleNamespace.newName(subcir.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
