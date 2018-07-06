@@ -21,7 +21,7 @@ class StuckAt(n: Int, id: String) extends Injector(n, id) {
   val mask = Reg(UInt(n.W))
   val value = Reg(UInt(n.W))
 
-  lazy val info = StuckAtInjectorInfo(n)
+  lazy val info = StuckAtInjectorInfo(n, Some((BigInt(1) << n) - 1), Some(BigInt(0)))
 
   val select = mask & Fill(mask.getWidth, enabled)
   io.out := (io.in & ~select) | (value & select)

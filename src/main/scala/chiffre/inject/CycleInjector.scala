@@ -23,7 +23,7 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String)
   val cycleCounter = Reg(UInt(cycleWidth.W))
   val flipMask = Reg(UInt(n.W))
 
-  lazy val info = CycleInjectorInfo(n, cycleWidth)
+  lazy val info = CycleInjectorInfo(n, cycleWidth, Some(BigInt(0)), Some(BigInt(0)))
 
   val fire = enabled & (cycleCounter === cycleTarget)
   io.out := Mux(fire, io.in ^ flipMask, io.in)

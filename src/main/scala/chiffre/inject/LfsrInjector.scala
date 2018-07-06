@@ -20,7 +20,7 @@ import chiffre.scan._
 class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   val difficulty = RegInit(0.U(lfsrWidth.W))
   val seed = RegInit(1.U(lfsrWidth.W))
-  lazy val info = LfsrInjectorInfo(1, lfsrWidth)
+  lazy val info = LfsrInjectorInfo(1, lfsrWidth, Some(Seq(BigInt(0))), Some(Seq(0.0)))
 
   val lfsr = Module(new perfect.random.Lfsr(lfsrWidth))
   lfsr.io.seed.valid := io.scan.en
@@ -55,5 +55,5 @@ class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
 
 class LfsrInjector32(n: Int, id: String)
     extends InjectorBitwise(n, id, new LfsrInjector(32, id)) { // scalastyle:off
-  lazy val info = LfsrInjectorInfo(n, 32) // scalastyle:off
+  lazy val info = LfsrInjectorInfo(n, 32, Some(Seq.fill(n)(BigInt(0))), Some(Seq.fill(n)(0.0))) // scalastyle:off
 }

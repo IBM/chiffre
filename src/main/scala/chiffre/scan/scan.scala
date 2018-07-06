@@ -71,21 +71,20 @@ sealed abstract class InjectorInfo {
  * doing a copy of this to update the fields. Assumedly the fields
  * should then be part of the actual case class and not a val
  * inside. */
-case class LfsrInjectorInfo(width: Int, lfsrWidth: Int) extends InjectorInfo {
+case class LfsrInjectorInfo(width: Int, lfsrWidth: Int, seed: Option[Seq[BigInt]], probability: Option[Seq[Double]]) extends InjectorInfo {
   val tpe = s"lfsr$lfsrWidth"
-  fields = Seq.fill(width)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth)))
-    .flatten
+  fields = seed.getOrElse(Seq.fill(width)(BigInt(0))).zip(probability.getOrElse(Seq.fill(width)(0.0))).map{case (s: BigInt, p: Double) => Seq(Seed(lfsrWidth, Some(s)), Difficulty(lfsrWidth, Some(p)))}.flatten
 }
 
-case class CycleInjectorInfo(width: Int, cycleWidth: Int)
+case class CycleInjectorInfo(width: Int, cycleWidth: Int, cycle: Option[BigInt], value: Option[BigInt])
     extends InjectorInfo {
   val tpe = s"cycle$cycleWidth"
-  fields = Seq(Cycle(cycleWidth), CycleInject(width))
+  fields = Seq(Cycle(cycleWidth, cycle), CycleInject(width, value))
 }
 
-case class StuckAtInjectorInfo(width: Int) extends InjectorInfo {
+case class StuckAtInjectorInfo(width: Int, mask: Option[BigInt], value: Option[BigInt]) extends InjectorInfo {
   val tpe = "stuckAt"
-  fields = Seq(Mask(width), StuckAt(width))
+  fields = Seq(Mask(width, mask), StuckAt(width, value))
 }
 
 /* The name of a signal and it's associated fault injector */
