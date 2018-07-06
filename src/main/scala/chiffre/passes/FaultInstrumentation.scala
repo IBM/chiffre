@@ -124,15 +124,8 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
           var scanOut: String = ""
           compMap(m.name) map { case (comp, id, gen)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
-            val width = t match {
-              case _: GroundType => getWidth(t)
-              case _: BundleType => IntWidth(bitWidth(t))
-              case _: VectorType => IntWidth(bitWidth(t))
-              case _ => throw new FaultInstrumentationException(
-                "[todo] Only GroundType, BundleType, and VectorType components are instrumentable")
-            }
-            val numBits = width match { case IntWidth(x) => x.toInt }
-            val tx = UIntType(width)
+            val width = bitWidth(t)
+            val tx = UIntType(IntWidth(width))
 
             val args = Array[AnyRef](new java.lang.Integer(numBits), id)
             val dutName = gen.getName
@@ -164,21 +157,9 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
             val st = classOf[chiffre.passes.ScanChainTransform]
 
             val faulty = DefWire(NoInfo, rename, t)
-            val data = t match {
-              case _: GroundType => Seq(
-                Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
-                Connect(NoInfo, toExp(rename), castRhs(t, toExp(s"$defi.io.out")))
-              )
-              case _: BundleType => fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
-                case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
-                case _ => Seq.empty[Statement]
-              }
-              case _: VectorType => fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
-                case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
-                case _ => Seq.empty[Statement]
-              }
-              case _ => throw new FaultInstrumentationException(
-                "[todo] Only GroundType, BundleType, and VectorType components are instrumentable")
+            val data = fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
+              case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
+              case _ => Seq.empty[Statement]
             }
             val x = mods(m.name)
             mods(m.name) = x.copy(
