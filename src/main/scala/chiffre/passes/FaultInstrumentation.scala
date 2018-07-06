@@ -158,7 +158,8 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
 
             val faulty = DefWire(NoInfo, rename, t)
             val data = fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
-              case Block(stmts: Seq[Statement]) => Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER))) +: stmts
+              case Block(stmts: Seq[Statement]) => stmts :+ Connect(NoInfo, toExp(s"$defi.io.in"),
+                         toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER)))
               case _ => Seq.empty[Statement]
             }
             val x = mods(m.name)
