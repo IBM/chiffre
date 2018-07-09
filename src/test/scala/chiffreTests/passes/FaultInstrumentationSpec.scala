@@ -17,7 +17,8 @@ import chiffre.passes.FaultInstrumentation
 import chiffre.inject.StuckAtInjector
 
 import firrtl._
-import firrtl.ir.Circuit
+import firrtl.ir.{Circuit, NoInfo, UnknownType}
+import firrtl.analyses.InstanceGraph
 import chisel3.iotesters.ChiselFlatSpec
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName}
 
@@ -45,6 +46,14 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val state = CircuitState(circuit, MidForm, Seq.empty, None)
 
     val output = f.execute(state)
+
     output.circuit.modules.map(_.name) should contain ("StuckAtInjectoranon1")
+    info("The injector module was added to the circuit")
+
+    val iGraph = new InstanceGraph(output.circuit)
+    val insts = iGraph.getChildrenInstances("top").map(_.copy(info=NoInfo, tpe=UnknownType))
+
+    insts should contain (WDefInstance(NoInfo, "StuckAtInjectoranon1", "StuckAtInjectoranon1", UnknownType))
+    info("The injector was instantiated")
   }
 }
