@@ -63,12 +63,12 @@ trait ChiffreInjector { this: Injector =>
 trait ChiffreInjectee extends BaseModule {
   self: BaseModule =>
 
-  def isFaulty[T <: Injector](component: InstanceId, id: String, tpe: Class[T]): Unit = {
+  def isFaulty[T <: Injector](component: InstanceId, id: String, gen: (Int, String) => Injector): Unit = {
     component match {
       case c: Bits =>
         annotate(
           new ChiselAnnotation with RunFirrtlTransform {
-            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, tpe.getName)
+            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, gen)
             def transformClass = classOf[FaultInstrumentationTransform]
           })
       case c => throw new Exception(s"Type not implemented for: $c")

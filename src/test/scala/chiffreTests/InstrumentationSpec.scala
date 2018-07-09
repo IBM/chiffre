@@ -35,7 +35,7 @@ class DummyInjector extends Injector(1) with ChiffreInjector {
 class DummyInjectee extends Module with ChiffreInjectee {
   val io = IO(new Bundle{})
   val x = Reg(UInt(1.W))
-  isFaulty(x, "dummy", classOf[LfsrInjector32])
+  isFaulty(x, "dummy", (bitWidth: Int, id: String) => new LfsrInjector32(bitWidth, id))
 }
 
 class InstrumentationSpec extends ChiselFlatSpec {

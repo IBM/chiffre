@@ -13,6 +13,7 @@
 // limitations under the License.
 package chiffre.passes
 
+import chiffre.inject.Injector
 import firrtl._
 import firrtl.passes.{ToWorkingIR, InferTypes, Uniquify, ExpandWhens, CheckInitialization, ResolveKinds, ResolveGenders,
   CheckTypes}
@@ -21,18 +22,15 @@ import scala.collection.mutable
 
 sealed trait FaultAnnos
 
-case class FaultInjectionAnnotation
-  (target: ComponentName, id: String, injector: String) extends
+case class FaultInjectionAnnotation(target: ComponentName, id: String, injector: (Int, String) => Injector) extends
     SingleTargetAnnotation[ComponentName] with FaultAnnos {
-  def duplicate(x: ComponentName): FaultInjectionAnnotation =
-    this.copy(target = x)
+  def duplicate(x: ComponentName): FaultInjectionAnnotation = this.copy(target = x)
 }
 
 class FaultInstrumentationTransform extends Transform {
   def inputForm: CircuitForm = MidForm
   def outputForm: CircuitForm = HighForm
-  def transforms(compMap: Map[String, Seq[(ComponentName, String, String)]]):
-      Seq[Transform] = Seq(
+  def transforms(compMap: Map[String, Seq[(ComponentName, String, (Int, String) => Injector)]]): Seq[Transform] = Seq(
     new FaultInstrumentation(compMap),
     /* After FaultInstrumentation, the inline compilation needs to be cleaned
      * up. this massive list is what is helping with that. Assumedly, this
@@ -48,23 +46,20 @@ class FaultInstrumentationTransform extends Transform {
     ResolveGenders,
     CheckTypes,
     new ScanChainTransform )
+
   def execute(state: CircuitState): CircuitState = {
     val myAnnos = state.annotations.collect { case a: FaultAnnos => a }
     myAnnos match {
       case Nil => state
       case p =>
-        val orig = mutable.HashMap[String, Seq[(Int, ComponentName)]]()
-        val conn = mutable.HashMap[String, Map[Int, ComponentName]]()
-        val repl = mutable.HashMap[String, Map[Int, ComponentName]]()
-        val comp = mutable.HashMap[String, Seq[(ComponentName, String, String)]]()
+        val comp = mutable.HashMap[String, Seq[(ComponentName, String, (Int, String) => Injector)]]()
         p.foreach {
           case FaultInjectionAnnotation(c, i, j) => comp(c.module.name) =
             comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, j) }
 
         comp.foreach{ case (k, v) =>
           logger.info(s"[info] $k")
-          v.foreach( a =>
-            logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
+          v.foreach( a => logger.info(s"[info]   - ${a._1.name}: ${a._2}: ${a._3}") )}
 
         transforms(comp.toMap).foldLeft(state)((old, x) => x.runTransform(old))
           .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
