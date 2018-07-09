@@ -219,10 +219,10 @@ class LeChiffreModuleImp(outer: LeChiffre, val scanId: String)
       tl_out.a.bits.data) }
 
   when (reqSent && tl_out.d.fire()) {
-    printfDebug("tl_out.d | opcode 0x%x, param 0x%x, size 0x%x, source 0x%x, sink 0x%x, data 0x%x, error 0x%x\n",
+    printfDebug("tl_out.d | opcode 0x%x, param 0x%x, size 0x%x, source 0x%x, sink 0x%x, denied 0x%x, data 0x%x, corrupt 0x%x\n",
       tl_out.d.bits.opcode, tl_out.d.bits.param, tl_out.d.bits.size,
-      tl_out.d.bits.source, tl_out.d.bits.sink, tl_out.d.bits.data,
-      tl_out.d.bits.error) }
+      tl_out.d.bits.source, tl_out.d.bits.sink, tl_out.d.bits.denied,
+      tl_out.d.bits.data, tl_out.d.bits.corrupt) }
 
   when (scan.clk) {
     printfInfo("Scan[%d]: %d, En: %d\n", cycle_count, scan.out, scan.en)
