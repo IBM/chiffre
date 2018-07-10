@@ -14,7 +14,7 @@
 package chiffreTests.passes
 
 import chiffre.InjectorInfo
-import chiffre.passes.FaultInstrumentation
+import chiffre.passes.{FaultInstrumentation, FaultInstrumentationException}
 import chiffre.inject.Injector
 
 import chisel3._
@@ -68,5 +68,46 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
     info("The injector was instantiated")
     insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
+  }
+
+  it should "error if a non-GroundType is instrumented" in {
+    val component = ComponentName("x", ModuleName("top", CircuitName("top")))
+    val gen = (bitWidth: Int, id: String) => new IdentityInjector(bitWidth)
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", gen)))
+    val f = new FaultInstrumentation(compMap)
+
+    val input = """|circuit top:
+                   |  module top:
+                   |    input clock: Clock
+                   |    input in: UInt<1>
+                   |    output out: UInt<1>
+                   |    reg x: UInt<1>[0], Clock
+                   |    x[0] <= in
+                   |    out <= x[0]
+                   |""".stripMargin
+
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+
+    a [FaultInstrumentationException] should be thrownBy (f.execute(state))
+  }
+
+  it should "error if an ExtModule is instrumented" in {
+    val component = ComponentName("x", ModuleName("top", CircuitName("top")))
+    val gen = (bitWidth: Int, id: String) => new IdentityInjector(bitWidth)
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", gen)))
+    val f = new FaultInstrumentation(compMap)
+
+    val input = """|circuit top:
+                   |  extmodule top:
+                   |    input clock: Clock
+                   |    input in: UInt<1>
+                   |    output out: UInt<1>
+                   |""".stripMargin
+
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+
+    a [FaultInstrumentationException] should be thrownBy (f.execute(state))
   }
 }
