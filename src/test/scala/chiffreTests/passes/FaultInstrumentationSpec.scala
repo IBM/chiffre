@@ -13,14 +13,27 @@
 // limitations under the License.
 package chiffreTests.passes
 
+import chiffre.InjectorInfo
 import chiffre.passes.FaultInstrumentation
-import chiffre.inject.StuckAtInjector
+import chiffre.inject.Injector
 
+import chisel3._
 import firrtl._
 import firrtl.ir.{Circuit, NoInfo, UnknownType}
 import firrtl.analyses.InstanceGraph
 import chisel3.iotesters.ChiselFlatSpec
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName}
+
+case object NoInjectorInfo extends InjectorInfo {
+  val name = "noInjectorInfo"
+  val fields = Seq.empty
+}
+
+class IdentityInjector(bitWidth: Int) extends Injector(bitWidth: Int) {
+  val info = NoInjectorInfo
+  io.out := io.in
+  io.scan.out := false.B
+}
 
 class FaultInstrumentationSpec extends ChiselFlatSpec {
 
@@ -28,7 +41,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
   it should "add the specified injector" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
-    val gen = (bitWidth: Int, id: String) => StuckAtInjector(bitWidth, id)
+    val gen = (bitWidth: Int, id: String) => new IdentityInjector(bitWidth)
     val compMap = Map(component.module.name -> Seq((component, "dummyId", gen)))
     val f = new FaultInstrumentation(compMap)
 
@@ -47,13 +60,13 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
     val output = f.execute(state)
 
-    output.circuit.modules.map(_.name) should contain ("StuckAtInjectoranon1")
     info("The injector module was added to the circuit")
+    output.circuit.modules.map(_.name) should contain ("IdentityInjector")
 
     val iGraph = new InstanceGraph(output.circuit)
     val insts = iGraph.getChildrenInstances("top").map(_.copy(info=NoInfo, tpe=UnknownType))
 
-    insts should contain (WDefInstance(NoInfo, "StuckAtInjectoranon1", "StuckAtInjectoranon1", UnknownType))
     info("The injector was instantiated")
+    insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
   }
 }
