@@ -182,7 +182,7 @@ class FaultInstrumentation(
 
             val x = mods(m.name)
             mods(m.name) = x.copy(
-              defines = DefInstance(NoInfo, defi, subcir.main) +:
+              defines = DefInstance(NoInfo, defi, defi) +:
                 x.defines :+ DefWire(NoInfo, rename, t),
               connects = x.connects ++ Seq(
                 Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
@@ -197,7 +197,7 @@ class FaultInstrumentation(
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
                 SinkAnnotation(scanClk, "scan_clk"),
-                ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
+                ScanChainInjectorAnnotation(comp, id, defi, defi),
                 ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
                 ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),
