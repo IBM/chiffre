@@ -14,9 +14,11 @@
 package chiffre.passes
 
 import chiffre.inject.Injector
+
 import firrtl._
 import firrtl.passes.{ToWorkingIR, InferTypes, Uniquify, ExpandWhens, CheckInitialization, ResolveKinds, ResolveGenders,
   CheckTypes}
+import firrtl.passes.wiring.WiringTransform
 import firrtl.annotations.{SingleTargetAnnotation, ComponentName}
 import scala.collection.mutable
 
@@ -45,7 +47,8 @@ class FaultInstrumentationTransform extends Transform {
     ResolveKinds,
     ResolveGenders,
     CheckTypes,
-    new ScanChainTransform )
+    new ScanChainTransform,
+    new WiringTransform )
 
   def execute(state: CircuitState): CircuitState = {
     val myAnnos = state.annotations.collect { case a: FaultAnnos => a }

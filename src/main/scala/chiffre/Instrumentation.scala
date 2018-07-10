@@ -35,9 +35,7 @@ trait ChiffreController extends BaseModule {
     //     "Chiffre Controller 'scanId' should be a 'lazy val'") }
     annotate(
       new ChiselAnnotation with RunFirrtlTransform {
-        def toFirrtl = ScanChainAnnotation(
-          scan.toNamed,
-          "master", "scan", name, None)
+        def toFirrtl = ScanChainAnnotation(scan.toNamed, "master", "scan", name, None)
         def transformClass = classOf[ScanChainTransform]
       }
     )

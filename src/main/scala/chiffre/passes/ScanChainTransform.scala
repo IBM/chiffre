@@ -61,6 +61,7 @@ case class ScanChainAnnotation(
   ctrl: String,
   dir: String,
   id: String,
+  // [todo] remove key, is this used?
   key: Option[ComponentName]) extends SingleTargetAnnotation[ComponentName]
     with ScanAnnos {
   def duplicate(x: ComponentName): ScanChainAnnotation = this.copy(target = x)
@@ -69,7 +70,6 @@ case class ScanChainAnnotation(
 case class ScanChainInjectorAnnotation(
   target: ComponentName,
   id: String,
-  instanceName: String,
   moduleName: String) extends SingleTargetAnnotation[ComponentName]
     with ScanAnnos {
   def duplicate(x: ComponentName): ScanChainInjectorAnnotation =
@@ -88,9 +88,6 @@ case class ScanChainDescriptionAnnotation(
 class ScanChainTransform extends Transform {
   def inputForm: CircuitForm = MidForm
   def outputForm: CircuitForm = HighForm
-  def transforms: Seq[Transform] = Seq(
-    new firrtl.passes.wiring.WiringTransform
-  )
 
   // scalastyle:off cyclomatic.complexity
   def analyze(circuit: Circuit, annos: Seq[Annotation]):
@@ -114,7 +111,7 @@ class ScanChainTransform extends Transform {
             case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
             case _                => s(id)
           }
-      case ScanChainInjectorAnnotation(comp, id, inst, mod) =>
+      case ScanChainInjectorAnnotation(comp, id, mod) =>
         exceptionIfUnknownId(id)
         s(id) = s(id).copy(injectors = s(id).injectors ++ Map(comp -> ModuleName(mod, comp.module.circuit)))
       case _ =>
@@ -173,10 +170,7 @@ class ScanChainTransform extends Transform {
           a ++ masterAnnotations ++ annotations
         }
 
-        val sx = state.copy(annotations = AnnotationSeq(state.annotations.toSeq ++ ax))
-
-        transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
-          .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
+        state.copy(annotations = ((state.annotations.toSeq ++ ax).toSet -- myAnnos.toSet).toSeq)
     }
   }
 }

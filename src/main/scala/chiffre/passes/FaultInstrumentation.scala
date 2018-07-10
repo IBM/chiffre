@@ -170,7 +170,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, (Int
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
                 SinkAnnotation(scanClk, "scan_clk"),
-                ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
+                ScanChainInjectorAnnotation(comp, id, subcir.main),
                 ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
                 ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),
