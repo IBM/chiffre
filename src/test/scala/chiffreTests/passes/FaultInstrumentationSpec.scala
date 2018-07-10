@@ -15,7 +15,7 @@ package chiffreTests.passes
 
 import chiffre.InjectorInfo
 import chiffre.passes.{FaultInstrumentation, FaultInstrumentationException}
-import chiffre.inject.Injector
+import chiffre.inject.{Injector, IdentityInjector, NoInjectorInfo}
 
 import chisel3._
 import firrtl._
@@ -23,17 +23,6 @@ import firrtl.ir.{Circuit, NoInfo, UnknownType}
 import firrtl.analyses.InstanceGraph
 import chisel3.iotesters.ChiselFlatSpec
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName}
-
-case object NoInjectorInfo extends InjectorInfo {
-  val name = "noInjectorInfo"
-  val fields = Seq.empty
-}
-
-class IdentityInjector(bitWidth: Int) extends Injector(bitWidth: Int) {
-  val info = NoInjectorInfo
-  io.out := io.in
-  io.scan.out := false.B
-}
 
 class FaultInstrumentationSpec extends ChiselFlatSpec {
 
