@@ -72,11 +72,10 @@ class FaultInstrumentationTransformSpec extends ChiselFlatSpec {
 
   behavior of "FaultInjectionAnnotation"
 
-  ignore should "be serializable" in {
+  it should "be serializable" in {
     val c = ComponentName("foo", ModuleName("bar", CircuitName("baz")))
     val x = FaultInjectionAnnotation(c, "id", classOf[IdentityInjector])
     val json = firrtl.annotations.JsonProtocol.serialize(Seq(x))
-    println(json)
   }
 
   behavior of "FaultInstrumentationTransform"
