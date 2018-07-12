@@ -94,8 +94,4 @@ class LfsrInjectSpec extends ChiselFlatSpec {
       Driver(() => new LfsrInjector(8)) { dut => new ProbabilisticTester(dut, probability) }
     }
   )
-
-  behavior of "LfsrInjectorN"
-
-  it should "be connected to a Chiffre controller" in (pending)
 }
