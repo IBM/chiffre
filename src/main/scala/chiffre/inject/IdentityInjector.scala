@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffre.inject
 
-import chiffre.InjectorInfo
+import chiffre.{InjectorInfo, ChiffreInjector}
 
 import chisel3._
 
@@ -22,8 +22,8 @@ case object NoInjectorInfo extends InjectorInfo {
   val fields = Seq.empty
 }
 
-class IdentityInjector(bitWidth: Int) extends Injector(bitWidth: Int) {
+class IdentityInjector(bitWidth: Int, val scanId: String) extends Injector(bitWidth: Int) with ChiffreInjector {
   val info = NoInjectorInfo
   io.out := io.in
-  io.scan.out := false.B
+  io.scan.out := io.scan.in
 }

@@ -30,8 +30,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
   it should "add the specified injector" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
-    val gen = (bitWidth: Int, id: String) => new IdentityInjector(bitWidth)
-    val compMap = Map(component.module.name -> Seq((component, "dummyId", gen)))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
     val f = new FaultInstrumentation(compMap)
 
     val input = """|circuit top:
@@ -61,8 +60,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
   it should "error if a non-GroundType is instrumented" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
-    val gen = (bitWidth: Int, id: String) => new IdentityInjector(bitWidth)
-    val compMap = Map(component.module.name -> Seq((component, "dummyId", gen)))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
     val f = new FaultInstrumentation(compMap)
 
     val input = """|circuit top:
@@ -83,8 +81,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
   it should "error if an ExtModule is instrumented" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
-    val gen = (bitWidth: Int, id: String) => new IdentityInjector(bitWidth)
-    val compMap = Map(component.module.name -> Seq((component, "dummyId", gen)))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
     val f = new FaultInstrumentation(compMap)
 
     val input = """|circuit top:

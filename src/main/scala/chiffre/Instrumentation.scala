@@ -33,10 +33,9 @@ trait ChiffreController extends BaseModule {
     // if (scanId == null) { // scalastyle:off
     //   throw new Exception(
     //     "Chiffre Controller 'scanId' should be a 'lazy val'") }
-    annotate(
-      new ChiselAnnotation with RunFirrtlTransform {
+    chisel3.experimental.annotate(
+      new ChiselAnnotation {
         def toFirrtl = ScanChainAnnotation(scan.toNamed, "master", "scan", name, None)
-        def transformClass = classOf[ScanChainTransform]
       }
     )
   }
@@ -50,21 +49,20 @@ trait ChiffreController extends BaseModule {
 trait ChiffreInjector { this: Injector =>
   val scanId: String
 
-  experimental.annotate {
+  chisel3.experimental.annotate {
     val x = this
-    new ChiselAnnotation with RunFirrtlTransform {
+    new ChiselAnnotation {
       def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
-      def transformClass = classOf[ScanChainTransform]
     }}
 }
 
 trait ChiffreInjectee extends BaseModule {
   self: BaseModule =>
 
-  def isFaulty[T <: Injector](component: InstanceId, id: String, gen: (Int, String) => Injector): Unit = {
+  def isFaulty[T <: Injector](component: InstanceId, id: String, gen: Class[_ <: Injector]): Unit = {
     component match {
       case c: Bits =>
-        annotate(
+        chisel3.experimental.annotate(
           new ChiselAnnotation with RunFirrtlTransform {
             def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, gen)
             def transformClass = classOf[FaultInstrumentationTransform]

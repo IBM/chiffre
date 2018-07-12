@@ -24,9 +24,8 @@ object JsonProtocol {
   def getTags(s: ScanChain): List[Class[_]] = {
     /* Collect all classes that may exist in the scan chain. I'm using
      * map/reduce as flatMap is throwing a type error. */
-    s.map {
-      case (k, v) => v.map(fc => fc.injector.getClass +:
-                             fc.injector.fields.map(_.getClass)).reduce(_++_) }
+    s.map { case (k, v) => v.map(fc =>
+             fc.injector.getClass +: fc.injector.fields.map(_.getClass)).foldLeft(List[Class[_]]())(_++_) }
       .reduce(_++_)
       .toList.distinct
   }

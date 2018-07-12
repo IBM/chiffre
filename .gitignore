@@ -10,3 +10,5 @@ submodules/gtkwave-svn/
 TAGS
 tags
 test_run_dir/
+/*.json
+/*.fir

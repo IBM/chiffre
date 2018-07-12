@@ -101,7 +101,8 @@ class ScanChainTransform extends Transform {
       case _ =>
     }
     def exceptionIfUnknownId(id: String): Unit = if (!s.contains(id)) {
-      throw new ScanChainException(s"No known scan chain master '$id' (did you misspell it?)") }
+      throw new ScanChainException(
+        s"No known scan chain master '$id' (Did you misspell it? Did you not include an injector?)") }
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) =>
         exceptionIfUnknownId(id)

@@ -21,10 +21,11 @@ import firrtl.passes.{ToWorkingIR, InferTypes, Uniquify, ExpandWhens, CheckIniti
 import firrtl.passes.wiring.WiringTransform
 import firrtl.annotations.{SingleTargetAnnotation, ComponentName}
 import scala.collection.mutable
+import scala.language.existentials
 
 sealed trait FaultAnnos
 
-case class FaultInjectionAnnotation(target: ComponentName, id: String, injector: (Int, String) => Injector) extends
+case class FaultInjectionAnnotation(target: ComponentName, id: String, injector: Class[_ <: Injector]) extends
     SingleTargetAnnotation[ComponentName] with FaultAnnos {
   def duplicate(x: ComponentName): FaultInjectionAnnotation = this.copy(target = x)
 }
@@ -32,7 +33,7 @@ case class FaultInjectionAnnotation(target: ComponentName, id: String, injector:
 class FaultInstrumentationTransform extends Transform {
   def inputForm: CircuitForm = MidForm
   def outputForm: CircuitForm = HighForm
-  def transforms(compMap: Map[String, Seq[(ComponentName, String, (Int, String) => Injector)]]): Seq[Transform] = Seq(
+  def transforms(compMap: Map[String, Seq[(ComponentName, String, Class[_ <: Injector])]]): Seq[Transform] = Seq(
     new FaultInstrumentation(compMap),
     /* After FaultInstrumentation, the inline compilation needs to be cleaned
      * up. this massive list is what is helping with that. Assumedly, this
@@ -55,7 +56,7 @@ class FaultInstrumentationTransform extends Transform {
     myAnnos match {
       case Nil => state
       case p =>
-        val comp = mutable.HashMap[String, Seq[(ComponentName, String, (Int, String) => Injector)]]()
+        val comp = mutable.HashMap[String, Seq[(ComponentName, String, Class[_ <: Injector])]]()
         p.foreach {
           case FaultInjectionAnnotation(c, i, j) => comp(c.module.name) =
             comp.getOrElse(c.module.name, Seq.empty) :+ (c, i, j) }
