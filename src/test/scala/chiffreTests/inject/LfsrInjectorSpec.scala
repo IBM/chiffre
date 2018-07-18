@@ -73,11 +73,6 @@ class LfsrInjectSpec extends ChiselFlatSpec {
 
   behavior of "LfsrInjectorInfo"
 
-  it should "generate a sensible name" in {
-    val x = LfsrInjectorInfo(512, 1024)
-    x.name should be ("lfsr1024")
-  }
-
   it should "be the expected width" in {
     val x = LfsrInjectorInfo(2048, 4096)
     x.width should be (2048 * 4096 * 2)

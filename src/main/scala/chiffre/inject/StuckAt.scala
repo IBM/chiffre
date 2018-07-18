@@ -23,7 +23,6 @@ case class Mask(width: Int) extends ScanField
 case class StuckAt(width: Int) extends ScanField
 
 case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
-  val name = "stuckAt"
   val fields = Seq(Mask(bitWidth), StuckAt(bitWidth))
 }
 

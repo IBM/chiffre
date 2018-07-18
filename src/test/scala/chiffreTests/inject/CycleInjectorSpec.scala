@@ -49,11 +49,6 @@ class TimingTester(dut: CycleInjector, time: Int) extends InjectorTester(dut) {
 class CycleInjectorSpec extends ChiselFlatSpec {
   behavior of "CycleInjectorInfo"
 
-  it should "generate a sensible name" in {
-    val x = CycleInjectorInfo(512, 1024)
-    x.name should be (s"cycle1024")
-  }
-
   it should "be the expected width" in {
     val x = CycleInjectorInfo(2048, 4096)
     x.width should be (2048 + 4096)

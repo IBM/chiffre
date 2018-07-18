@@ -37,11 +37,6 @@ class IdentityInjectorTester(dut: IdentityInjector) extends InjectorTester(dut) 
 class IdentityInjectorSpec extends ChiselFlatSpec {
   behavior of "NoInjectorInfo"
 
-  it should "generate a sensible name" in {
-    val x = NoInjectorInfo
-    x.name should be ("noInjectorInfo")
-  }
-
   it should "be the expected width" in {
     val x = NoInjectorInfo
     x.width should be (0)

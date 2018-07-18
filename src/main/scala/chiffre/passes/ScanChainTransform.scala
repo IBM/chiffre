@@ -45,13 +45,8 @@ case class ScanChainInfo(
       .stripMargin
   // scalastyle:on line.size.limit
 
-  def toScanChain(name: String): ScanChain = {
-    val components: Seq[FaultyComponent] = injectors.map{ case(c, m) =>
-      val id = s"${c.module.circuit.name}.${c.module.name}.${c.name}"
-      FaultyComponent(id, description(m))
-    }.toSeq
-    Map(name -> components)
-  }
+  def toScanChain(name: String): ScanChain =
+    Map(name -> injectors.map{ case(c, m) => FaultyComponent(c.serialize, description(m)) }.toSeq)
 }
 
 sealed trait ScanAnnos
@@ -90,8 +85,7 @@ class ScanChainTransform extends Transform {
   def outputForm: CircuitForm = HighForm
 
   // scalastyle:off cyclomatic.complexity
-  def analyze(circuit: Circuit, annos: Seq[Annotation]):
-      Map[String, ScanChainInfo] = {
+  def analyze(circuit: Circuit, annos: Seq[Annotation]): Map[String, ScanChainInfo] = {
     val s = mutable.HashMap[String, ScanChainInfo]()
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) => (ctrl, dir) match {

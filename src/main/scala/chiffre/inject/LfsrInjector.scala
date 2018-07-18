@@ -22,7 +22,6 @@ case class Seed(width: Int) extends ScanField
 case class Difficulty(width: Int) extends ScanField with ProbabilityBind
 
 case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo {
-  val name = s"lfsr$lfsrWidth"
   val fields = Seq.fill(bitWidth)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth))).flatten
 }
 

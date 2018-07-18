@@ -16,13 +16,12 @@ package chiffre.inject
 import chisel3._
 import chiffre.ChiffreInjector
 
-import chiffre.{InjectorInfo, ScanField, HasName, HasWidth}
+import chiffre.{InjectorInfo, ScanField, HasWidth}
 
 case class Cycle(width: Int) extends ScanField
 case class CycleInject(width: Int) extends ScanField
 
 case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int) extends InjectorInfo {
-  val name = s"cycle$cycleWidth"
   val fields = Seq(Cycle(cycleWidth), CycleInject(bitWidth))
 }
 

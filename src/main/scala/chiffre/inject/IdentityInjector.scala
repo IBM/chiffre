@@ -18,7 +18,6 @@ import chiffre.{InjectorInfo, ChiffreInjector}
 import chisel3._
 
 case object NoInjectorInfo extends InjectorInfo {
-  val name = "noInjectorInfo"
   val fields = Seq.empty
 }
 

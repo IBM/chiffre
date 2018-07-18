@@ -49,11 +49,6 @@ class StuckAtTester(dut: StuckAtInjector) extends InjectorTester(dut) {
 class StuckAtInjectorSpec extends ChiselFlatSpec {
   behavior of "StuckAtInjectorInfo"
 
-  it should "generate a sensible name" in {
-    val x = StuckAtInjectorInfo(9001)
-    x.name should be ("stuckAt")
-  }
-
   it should "be the expected width" in {
     val x = StuckAtInjectorInfo(1337)
     x.width should be (1337 * 2)

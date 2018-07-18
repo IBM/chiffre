@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffre
 
-trait InjectorInfo extends HasName with HasWidth {
+trait InjectorInfo extends HasWidth {
   /* All configurable fields for this specific injector */
   val fields: Seq[ScanField]
 
@@ -22,7 +22,7 @@ trait InjectorInfo extends HasName with HasWidth {
 
   /* Prety print */
   def serialize(tab: String = ""): String = {
-    s"""|${tab}name: $name
+    s"""|${tab}class: ${this.getClass.getSimpleName}
         |${tab}width: $width
         |${fields.map(a => s"${a.serialize(tab + "  ")}").mkString("\n")}"""
       .stripMargin
