@@ -30,6 +30,13 @@ version := "0.1-SNAPSHOT"
 scalacOptions := Seq("-deprecation", "-feature") ++ scalacOptionsVersion(scalaVersion.value)
 scalaVersion := "2.11.12"
 crossScalaVersions := Seq("2.11.12", "2.12.4")
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.6.0"
+libraryDependencies += "org.json4s" %% "json4s-native" % "3.5.3"
+
+/* Assembly */
+assemblyJarName in assembly := "scan-chain-config.jar"
+test in assembly := {}
+assemblyOutputPath in assembly := file("utils/bin/scan-chain-config.jar")
 
 val defaultVersions = Map("chisel3" -> "3.1.+",
                           "chisel-iotesters" -> "1.2.+",

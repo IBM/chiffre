@@ -41,6 +41,14 @@ trait ScanField extends HasName with HasWidth {
     this
   }
 
+  def bind(in: Option[BigInt]): ScanField =
+    if (in.nonEmpty) {
+      bind(in.get)
+    } else {
+      value = None
+      this
+    }
+
   lazy val maxValue = BigInt(2).pow(width) - 1
 
   def toBits(): String = s"%${width}s"
@@ -70,4 +78,11 @@ trait ScanField extends HasName with HasWidth {
 
 trait ProbabilityBind { this: ScanField =>
   def bind(probability: Double): ScanField = bind(BigDecimal((math.pow(2, width) - 1) * probability).toBigInt)
+  def bind(probability: Option[Double]): ScanField =
+    if (probability.nonEmpty) {
+      bind(probability.get)
+    } else {
+      value = None
+      this
+    }
 }

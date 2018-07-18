@@ -44,8 +44,7 @@ object JsonProtocol {
     val classNames: List[String] = parse(in) match {
       case JObject(sc) => sc.flatMap {
         case (_, JArray(components)) => components.map {
-          case JObject(_ :: ("injector",
-                             JObject(("class", JString(c)) :: _)) :: _) => c
+          case JObject(_ :: ("injector", JObject(("class", JString(c)) :: _)) :: _) => c
           case _ => throwError() }
         case _ => throwError() }
       case _ => throwError() }
