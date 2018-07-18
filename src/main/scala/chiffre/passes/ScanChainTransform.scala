@@ -18,8 +18,8 @@ import firrtl.ir._
 import firrtl.passes.PassException
 import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName, SingleTargetAnnotation, Annotation}
-import chiffre.InjectorInfo
-import chiffre.scan.{ScanChain, FaultyComponent, JsonProtocol}
+import chiffre.{InjectorInfo, FaultyComponent}
+import chiffre.scan.{ScanChain, JsonProtocol}
 
 import scala.collection.mutable
 import java.io.FileWriter

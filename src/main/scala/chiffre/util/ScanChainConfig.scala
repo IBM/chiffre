@@ -13,8 +13,8 @@
 // limitations under the License.
 package chiffre.util
 
-import chiffre.{ScanField, InjectorInfo}
-import chiffre.scan.{ScanChain, FaultyComponent, JsonProtocol}
+import chiffre.{ScanField, FaultyComponent, InjectorInfo}
+import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{Seed, Difficulty, Mask, StuckAt, Cycle, CycleInject}
 import scopt.OptionParser
 import java.io.File

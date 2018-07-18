@@ -26,3 +26,12 @@ class ScanIo extends Bundle {
 trait HasScanState { this: BaseModule =>
   val info: InjectorInfo
 }
+
+case class FaultyComponent(name: String, injector: InjectorInfo) {
+  def serialize(indent: String): String =
+    s"""|${indent}- $name:
+        |${injector.serialize(indent + "  ")}"""
+      .stripMargin
+
+  def toBits(): String = injector.toBits()
+}
