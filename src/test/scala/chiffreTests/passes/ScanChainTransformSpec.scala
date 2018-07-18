@@ -21,9 +21,19 @@ import firrtl._
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName}
 import firrtl.passes.wiring.{SourceAnnotation, SinkAnnotation}
 import chisel3.iotesters.ChiselFlatSpec
+import java.io.File
 
 class ScanChainTransformSpec extends ChiselFlatSpec {
   behavior of "ScanChainTransform"
+
+  val targetDir = "test_run_dir"
+
+  def fileShouldExist(fileName: String): Unit = {
+    val file = new File(fileName)
+    info(s"$fileName was created")
+    file.exists() should be (true)
+    file.delete()
+  }
 
   it should "emit annotations to wire a scan chain" in {
     val input =
@@ -46,7 +56,8 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
       ScanChainInjectorAnnotation(ComponentName("x", m), "foo", "Injector"),
       ScanChainAnnotation(ComponentName("injector.io.scan.in", m), "slave", "in", "foo", Some(ComponentName("x", m))),
       ScanChainAnnotation(ComponentName("injector.io.scan.out", m), "slave", "out", "foo", Some(ComponentName("x", m))),
-      ScanChainDescriptionAnnotation(ModuleName("Injector", CircuitName("Top")), "foo", NoInjectorInfo)
+      ScanChainDescriptionAnnotation(ModuleName("Injector", CircuitName("Top")), "foo", NoInjectorInfo),
+      TargetDirAnnotation(targetDir)
     )
     val state = CircuitState(circuit, MidForm, annos, None)
 
@@ -65,6 +76,7 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
     )
 
     annosExpected.foreach(a => output.annotations.toSet should contain (a))
+    fileShouldExist(targetDir + "/scan-chain.json")
   }
 
   // [todo] This currently fails due to (I think) the same reasons as #16.
@@ -97,7 +109,8 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
       ScanChainInjectorAnnotation(ComponentName("y", m), "foo", "Injector"),
       ScanChainAnnotation(ComponentName("injector_1.io.scan.in", m), "slave", "in", "foo", Some(ComponentName("x", m))),
       ScanChainAnnotation(ComponentName("injector_1.io.scan.out", m), "slave", "out", "foo", Some(ComponentName("x", m))),
-      ScanChainDescriptionAnnotation(ModuleName("Injector", CircuitName("Top")), "foo", NoInjectorInfo)
+      ScanChainDescriptionAnnotation(ModuleName("Injector", CircuitName("Top")), "foo", NoInjectorInfo),
+      TargetDirAnnotation(targetDir)
     )
     val state = CircuitState(circuit, MidForm, annos, None)
 

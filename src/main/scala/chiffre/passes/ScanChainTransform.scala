@@ -127,7 +127,8 @@ class ScanChainTransform extends Transform {
   } // scalastyle:on cyclomatic.complexity
 
   def execute(state: CircuitState): CircuitState = {
-    val myAnnos = state.annotations.collect { case a: ScanAnnos => a }
+    val targetDir = state.annotations.collectFirst{ case a: TargetDirAnnotation => a.value }.getOrElse(".")
+    val myAnnos = state.annotations.collect{ case a: ScanAnnos => a }
     myAnnos match {
       case Nil => state
       case p =>
@@ -143,7 +144,7 @@ class ScanChainTransform extends Transform {
         // [todo] Set the emitted directory and file name
         val sc = s.flatMap{ case(k, v) => v.toScanChain(k) }
 
-        val jsonFile = new FileWriter("scan-chain.json")
+        val jsonFile = new FileWriter(targetDir + "/scan-chain.json")
         jsonFile.write(JsonProtocol.serialize(sc))
         jsonFile.close()
 
