@@ -35,7 +35,7 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
     file.delete()
   }
 
-  it should "emit annotations to wire a scan chain" in {
+  it should "emit scan chain annotations and a scan chain description" in {
     val input =
       """|circuit Top:
          |  module Top:
@@ -75,7 +75,8 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
       SinkAnnotation(ComponentName("controller.io.scan.in", m), "scan_foo_1")
     )
 
-    annosExpected.foreach(a => output.annotations.toSet should contain (a))
+    info("expected annotations emitted")
+    annosExpected.foreach( output.annotations.toSet should contain (_) )
     fileShouldExist(targetDir + "/scan-chain.json")
   }
 
@@ -132,6 +133,8 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
       SinkAnnotation(ComponentName("controller.io.scan.in", m), "scan_foo_2")
     )
 
+    info("expected annotations emitted")
     annosExpected.foreach(a => output.annotations.toSet should contain (a))
+    fileShouldExist("scan-chain.json")
   }
 }

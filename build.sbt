@@ -34,9 +34,9 @@ libraryDependencies += "com.github.scopt" %% "scopt" % "3.6.0"
 libraryDependencies += "org.json4s" %% "json4s-native" % "3.5.3"
 
 /* Assembly */
-assemblyJarName in assembly := "scan-chain-config.jar"
+assemblyJarName in assembly := "chiffre.jar"
 test in assembly := {}
-assemblyOutputPath in assembly := file("utils/bin/scan-chain-config.jar")
+assemblyOutputPath in assembly := file("utils/bin/chiffre.jar")
 
 val defaultVersions = Map("chisel3" -> "3.1.+",
                           "chisel-iotesters" -> "1.2.+",

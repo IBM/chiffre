@@ -62,8 +62,12 @@ class ScanChainUtils(implicit opt: Arguments) {
   private def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): Unit =
     i.fields.foreach(bind(_, name))
 
-  private def bind(f: FaultyComponent)(implicit opt: Arguments): Unit =
+  private def bind(f: FaultyComponent)(implicit opt: Arguments): Unit = {
     bind(f.injector, f.name)
+    val unbound = f.injector.fields.foldLeft(true)( (notEmpty, x) => notEmpty & x.value.nonEmpty )
+    if (unbound) {
+      throw new ScanChainException(s"Unable to bind ${f.injector} based on command line options") }
+  }
 
   /* Consume command line options to populate scan chain fields */
   def bind(s: ScanChain)(implicit opt: Arguments): Unit = s.foreach {
@@ -120,7 +124,7 @@ class ScanChainUtils(implicit opt: Arguments) {
   }
 }
 
-object Main extends App {
+object Driver {
   val parser = new OptionParser[Arguments]("ScanChainConfig") {
     help("help").text("prints this usage text")
 
@@ -160,7 +164,7 @@ object Main extends App {
       .text("A YAML description of the scan chain")
   }
 
-  parser.parse(args, Arguments()) match {
+  def main(args: Array[String]): Unit = parser.parse(args, Arguments()) match {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils

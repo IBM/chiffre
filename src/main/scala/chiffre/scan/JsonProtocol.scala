@@ -21,7 +21,7 @@ import org.json4s.native.Serialization
 import org.json4s.native.Serialization.{read, write, writePretty}
 
 object JsonProtocol {
-  def getTags(s: ScanChain): List[Class[_]] = {
+  private def getTags(s: ScanChain): List[Class[_]] = {
     /* Collect all classes that may exist in the scan chain. I'm using
      * map/reduce as flatMap is throwing a type error. */
     s.map { case (k, v) => v.map(fc =>

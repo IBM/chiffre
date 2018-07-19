@@ -22,7 +22,7 @@ import chiffre.{InjectorInfo, FaultyComponent}
 import chiffre.scan.{ScanChain, JsonProtocol}
 
 import scala.collection.mutable
-import java.io.FileWriter
+import java.io.{File, FileWriter}
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
@@ -121,12 +121,13 @@ class ScanChainTransform extends Transform {
   } // scalastyle:on cyclomatic.complexity
 
   def execute(state: CircuitState): CircuitState = {
-    val targetDir = state.annotations.collectFirst{ case a: TargetDirAnnotation => a.value }.getOrElse(".")
+    val targetDir = new File(state.annotations.collectFirst{ case a: TargetDirAnnotation => a.value }.getOrElse("."))
     val myAnnos = state.annotations.collect{ case a: ScanAnnos => a }
     myAnnos match {
       case Nil => state
       case p =>
-        val s = analyze(state.circuit, p)
+        // s is a map of scan chains indexed by scan chain id
+        val s: Map[String, ScanChainInfo] = analyze(state.circuit, p)
 
         s.foreach{ case (k, v) => logger.info(
                     s"""|[info] scan chain:
@@ -138,6 +139,7 @@ class ScanChainTransform extends Transform {
         // [todo] Set the emitted directory and file name
         val sc = s.flatMap{ case(k, v) => v.toScanChain(k) }
 
+        if (!targetDir.exists()) { targetDir.mkdirs() }
         val jsonFile = new FileWriter(targetDir + "/scan-chain.json")
         jsonFile.write(JsonProtocol.serialize(sc))
         jsonFile.close()

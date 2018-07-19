@@ -1,4 +1,4 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-java -jar $DIR/scan-chain-config.jar $@
+java -jar $DIR/chiffre.jar chiffre.utils.Driver $@
