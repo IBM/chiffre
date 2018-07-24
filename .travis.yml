@@ -15,11 +15,15 @@ env:
     PATH=$PATH:$VERILATOR_ROOT/bin:$TRAVIS_BUILD_DIR/utils/bin
     SBT_ARGS="-Dsbt.log.noformat=true"
 
+stages:
+  - test
+  - assembly
+
 jobs:
   include:
-    - stage: test-2.11.12
-      script:
-        - sbt ++2.11.12 $SBT_ARGS test
-    - stage: test-2.12.4
-      script:
-        - sbt ++2.12.4 $SBT_ARGS test
+    - stage: test
+      script: sbt ++2.11.12 $SBT_ARGS test
+    - stage: test
+      script: sbt ++2.12.4 $SBT_ARGS test
+    - stage: assembly
+      script: make
