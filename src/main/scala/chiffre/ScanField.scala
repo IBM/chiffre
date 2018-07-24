@@ -14,6 +14,7 @@
 package chiffre
 
 case class ScanFieldException(msg: String) extends Exception(msg)
+case class ScanFieldUnboundException(msg: String) extends Exception(msg)
 
 trait HasWidth {
   val width: Int
@@ -45,8 +46,7 @@ trait ScanField extends HasName with HasWidth {
     if (in.nonEmpty) {
       bind(in.get)
     } else {
-      value = None
-      this
+      throw new ScanFieldUnboundException("Cannot bind to empty value")
     }
 
   lazy val maxValue = BigInt(2).pow(width) - 1

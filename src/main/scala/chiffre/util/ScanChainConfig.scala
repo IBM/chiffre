@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffre.util
 
-import chiffre.{ScanField, FaultyComponent, InjectorInfo}
+import chiffre.{ScanField, FaultyComponent, InjectorInfo, ScanFieldUnboundException}
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{Seed, Difficulty, Mask, StuckAt, Cycle, CycleInject}
 import scopt.OptionParser
@@ -46,26 +46,29 @@ class ScanChainUtils(implicit opt: Arguments) {
   def getComponentNames(s: Seq[FaultyComponent]): Seq[String] = s
     .map(_.name)
 
-  private def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField =
+  private def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField = try {
     f match {
-      case x: ScanField if x.value.nonEmpty => throw new ScanChainException(
-        s"Tried to rebind already bound ScanField $f (name: $name)")
-      case x: Seed        => x.bind(BigInt(x.width, rand))
-      case x: Difficulty  => x.bind(opt.probability)
-      case x: Mask        => x.bind(opt.mask)
-      case x: StuckAt     => x.bind(opt.stuckAt)
-      case x: Cycle       => x.bind(opt.cycle)
-      case x: CycleInject => x.bind(opt.cycleInject)
-      case _              => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
+        case x: ScanField if x.value.nonEmpty => throw new ScanChainException(
+          s"Tried to rebind already bound ScanField $f (name: $name)")
+        case x: Seed        => x.bind(BigInt(x.width, rand))
+        case x: Difficulty  => x.bind(opt.probability)
+        case x: Mask        => x.bind(opt.mask)
+        case x: StuckAt     => x.bind(opt.stuckAt)
+        case x: Cycle       => x.bind(opt.cycle)
+        case x: CycleInject => x.bind(opt.cycleInject)
+        case _              => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
     }
+  } catch {
+    case _: ScanFieldUnboundException => throw new ScanChainException(s"Cannot bind ScanField $f based on available arguments")
+  }
 
   private def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): Unit =
     i.fields.foreach(bind(_, name))
 
   private def bind(f: FaultyComponent)(implicit opt: Arguments): Unit = {
     bind(f.injector, f.name)
-    val unbound = f.injector.fields.foldLeft(true)( (notEmpty, x) => notEmpty & x.value.nonEmpty )
-    if (unbound) {
+    val bound = f.injector.fields.foldLeft(true)( (notEmpty, x) => { notEmpty & x.value.nonEmpty } )
+    if (!bound) {
       throw new ScanChainException(s"Unable to bind ${f.injector} based on command line options") }
   }
 
@@ -158,10 +161,10 @@ object Driver {
     opt[String]("cycle-inject")
       .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) )
       .text("Bit string to inject at <cycle>")
-    arg[File]("scan.yaml")
+    arg[File]("scan.json")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
-      .text("A YAML description of the scan chain")
+      .text("A JSON description of the scan chain")
   }
 
   def main(args: Array[String]): Unit = parser.parse(args, Arguments()) match {

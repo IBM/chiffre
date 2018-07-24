@@ -16,7 +16,7 @@ package chiffreTests
 import chiffre.FaultyComponent
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{StuckAtInjectorInfo, LfsrInjectorInfo, CycleInjectorInfo}
-import chiffre.util.Driver
+import chiffre.util.{Driver, ScanChainException}
 import chisel3.iotesters.ChiselFlatSpec
 
 import java.io.{File, FileWriter}
@@ -44,10 +44,24 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
 
   behavior of "ScanChainConfig"
 
-  it should "dummy test" in {
+  it should "error if missing command line arguments" in {
     val scanFile = s"$test_dir/scan-chain.json"
     writeScanChainToFile(scanChain, scanFile)
     val args = Array(scanFile)
+    (the [ScanChainException] thrownBy {
+      Driver.main(args)
+    }).msg should startWith ("Cannot bind ScanField")
+  }
+
+  it should "work if all command line arguments are specified" in {
+    val scanFile = s"$test_dir/scan-chain.json"
+    writeScanChainToFile(scanChain, scanFile)
+    val args = Array("--probability", "0.5",
+                     "--mask", "3",
+                     "--stuck-at", "2",
+                     "--cycle", "13",
+                     "--cycle-inject", "4",
+                     scanFile)
     Driver.main(args)
   }
 }
