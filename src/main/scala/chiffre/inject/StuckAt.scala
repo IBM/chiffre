@@ -55,8 +55,4 @@ class StuckAtInjector(val bitWidth: Int) extends Injector(bitWidth) {
   }
 }
 
-object StuckAtInjector {
-  def apply(bitWidth: Int, scanChainId: String) = new StuckAtInjector(bitWidth) with ChiffreInjector {
-    val scanId = scanChainId
-  }
-}
+class StuckAtInjectorWithId(bitWidth: Int, val scanId: String) extends StuckAtInjector(bitWidth) with ChiffreInjector

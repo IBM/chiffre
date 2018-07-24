@@ -135,18 +135,18 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
 
             val args = Array[AnyRef](new java.lang.Integer(numBits), id)
             val dutName = gen.getName
-            val dut = try {
-              () => gen.getConstructors()(0)
-                .newInstance(args: _*)
-                .asInstanceOf[chisel3.Module]
-            } catch {
-              case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
-                s"Did not find '(bitWidth: Int, scanId: String)' constructor for injector '$dutName' (Did you forget to specify it?)")
-            }
+            val dut = () => gen.getConstructors()(0)
+              .newInstance(args: _*)
+              .asInstanceOf[chisel3.Module]
             val (subcir, defms, annosx) = if (cmods.contains(dutName)) {
               (cmods(dutName).circuit, Seq.empty, Seq.empty)
             } else {
-              cmods(dutName) = inlineCompile(dut, Some(circuitNamespace))
+              try {
+                cmods(dutName) = inlineCompile(dut, Some(circuitNamespace))
+              } catch {
+                case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
+                  s"Did not find '(bitWidth: Int, scanId: String)' constructor for injector '$dutName' (Did you forget to specify it?)")
+              }
               (cmods(dutName).circuit, cmods(dutName).circuit.modules,
                if (cmods(dutName).annotations.isEmpty) { Seq.empty }
                else { cmods(dutName).annotations.toSeq   } )
