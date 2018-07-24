@@ -64,4 +64,7 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
                      scanFile)
     Driver.main(args)
   }
+
+  it should "properly compute the Fletcher checksum" in (pending)
+  it should "report the correct width" in (pending)
 }
