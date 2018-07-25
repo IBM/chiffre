@@ -45,8 +45,9 @@ case class ScanChainInfo(
       .stripMargin
   // scalastyle:on line.size.limit
 
-  def toScanChain(name: String): ScanChain =
-    Map(name -> injectors.map{ case(c, m) => FaultyComponent(c.serialize, description(m)) }.toSeq)
+  def toFaultyComponent: Seq[FaultyComponent] = injectors
+    .map{ case(c, m) => FaultyComponent(c.serialize, description(m)) }
+    .toSeq
 }
 
 sealed trait ScanAnnos
@@ -137,8 +138,10 @@ class ScanChainTransform extends Transform {
         // [todo] Order the scan chain based on distance
 
         // [todo] Set the emitted directory and file name
-        val sc = s.flatMap{ case(k, v) => v.toScanChain(k) }
+        val sc = s.flatMap{ case(k, v) => Map(k -> v.toFaultyComponent) }
 
+        // [todo] The emitted scan chain does not match the actual
+        // ordering
         if (!targetDir.exists()) { targetDir.mkdirs() }
         val jsonFile = new FileWriter(targetDir + "/scan-chain.json")
         jsonFile.write(JsonProtocol.serialize(sc))
