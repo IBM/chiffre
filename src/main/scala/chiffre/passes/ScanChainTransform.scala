@@ -22,6 +22,7 @@ import chiffre.{InjectorInfo, FaultyComponent}
 import chiffre.scan.{ScanChain, JsonProtocol}
 
 import scala.collection.mutable
+import scala.collection.immutable.ListMap
 import java.io.{File, FileWriter}
 
 case class ScanChainException(msg: String) extends PassException(msg)
@@ -31,7 +32,7 @@ case class ScanChainInfo(
   /* Everything here is keyed by the injector component */
   slaveIn: Map[ComponentName, ComponentName] = Map.empty,
   slaveOut: Map[ComponentName, ComponentName] = Map.empty,
-  injectors: Map[ComponentName, ModuleName] = Map.empty,
+  injectors: ListMap[ComponentName, ModuleName] = ListMap.empty,
   /* This is keyed by the injector module name */
   description: Map[ModuleName, InjectorInfo] = Map.empty) {
   // scalastyle:off line.size.limit

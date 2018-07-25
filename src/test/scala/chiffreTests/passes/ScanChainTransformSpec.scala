@@ -137,4 +137,6 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
     annosExpected.foreach(a => output.annotations.toSet should contain (a))
     fileShouldExist("scan-chain.json")
   }
+
+  it should "have the same ordering in the circuit and the JSON output" in (pending)
 }
