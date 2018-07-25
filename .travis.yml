@@ -17,7 +17,6 @@ env:
 
 stages:
   - test
-  - assembly
 
 jobs:
   include:
@@ -25,5 +24,5 @@ jobs:
       script: sbt ++2.11.12 $SBT_ARGS test
     - stage: test
       script: sbt ++2.12.4 $SBT_ARGS test
-    - stage: assembly
-      script: make
+    - stage: test
+      script: sbt $SBT_ARGS clean assembly publishLocal
