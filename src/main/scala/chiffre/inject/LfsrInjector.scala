@@ -58,7 +58,7 @@ sealed class LfsrInjector(val lfsrWidth: Int) extends Injector(1) {
 }
 
 class LfsrInjectorN(bitWidth: Int, val lfsrWidth: Int, val scanId: String) extends
-    InjectorBitwise(bitWidth, new LfsrInjector(bitWidth)) with ChiffreInjector {
+    InjectorBitwise(bitWidth, new LfsrInjector(lfsrWidth)) with ChiffreInjector {
   lazy val info = LfsrInjectorInfo(bitWidth, lfsrWidth)
 }
 

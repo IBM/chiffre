@@ -14,7 +14,7 @@
 package chiffreTests.inject
 
 import chiffre.ScanFieldException
-import chiffre.inject.{Seed, Difficulty, LfsrInjectorInfo, LfsrInjector}
+import chiffre.inject.{Seed, Difficulty, LfsrInjectorInfo, LfsrInjector, LfsrInjectorN}
 import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.{ChiselFlatSpec, Driver}
 
@@ -89,4 +89,10 @@ class LfsrInjectSpec extends ChiselFlatSpec {
       Driver(() => new LfsrInjector(8)) { dut => new ProbabilisticTester(dut, probability) }
     }
   )
+
+  behavior of "LfsrInjectorN"
+
+  it should "be able to cycle a configuration" in {
+    Driver(() => new LfsrInjectorN(4, 16, "main")) { dut => new InjectorCycleTester(dut) }
+  }
 }
