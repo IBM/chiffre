@@ -19,10 +19,12 @@ import chiffre.inject.{Injector, IdentityInjector, NoInjectorInfo}
 
 import chisel3._
 import firrtl._
-import firrtl.ir.{Circuit, NoInfo, UnknownType}
+import firrtl.ir._
 import firrtl.analyses.InstanceGraph
 import chisel3.iotesters.ChiselFlatSpec
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName}
+
+import scala.collection.mutable.ArrayBuffer
 
 class FaultInstrumentationSpec extends ChiselFlatSpec {
 
@@ -56,6 +58,39 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
     info("The injector was instantiated")
     insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
+  }
+
+  it should "inject faults into a vector type" in {
+    def collect(connections: ArrayBuffer[Connect])(s: Statement): Statement = {
+      s match {
+        case b: Block => b.mapStmt(collect(connections))
+        case c: Connect => connections += c; c
+        case _ => s
+      }
+    }
+
+    val component = ComponentName("x", ModuleName("top", CircuitName("top")))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
+    val f = new FaultInstrumentation(compMap)
+
+    val input = """|circuit top:
+                   |  module top:
+                   |    input clock: Clock
+                   |    input in: UInt<1>[4]
+                   |    output out: UInt<1>
+                   |    reg x: UInt<1>[4], Clock
+                   |    x <= in
+                   |    out <= xorr(x)
+                   |""".stripMargin
+
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+    val connections = new ArrayBuffer[Connect]()
+    f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
+    for (i <- 0 to 3) {
+      connections.map(_.serialize) should contain (s"x_fault[$i] <= asUInt(bits(IdentityInjector.io.out, $i, $i))")
+    }
+    connections.last.expr.serialize should be ("cat(cat(asUInt(x[3]), asUInt(x[2])), cat(asUInt(x[1]), asUInt(x[0])))")
   }
 
   it should "error if a 0-width Vec is instrumented" in {
