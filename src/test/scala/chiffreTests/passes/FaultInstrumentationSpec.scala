@@ -117,6 +117,33 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     connections.last.expr.serialize should be ("cat(asUInt(x.a), asUInt(x.b))")
   }
 
+  it should "inject faults into a nested bundle type" in {
+    val component = ComponentName("x", ModuleName("top", CircuitName("top")))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
+    val f = new FaultInstrumentation(compMap)
+
+    val tpe = "{a: {a1: UInt<1>, a2: UInt<3>}, b: UInt<3>}"
+    val input = s"""|circuit top:
+                    |  module top:
+                    |    input clock: Clock
+                    |    input in: $tpe
+                    |    output out: {a: UInt<1>, b: UInt<4>}
+                    |    reg x: $tpe, Clock
+                    |    x <= in
+                    |    out.a <= and(x.a.a1, andr(x.b))
+                    |    out.b <= add(x.a.a2, x.b)
+                    |""".stripMargin
+    
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+    val connections = new ArrayBuffer[Connect]()
+    f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
+    connections.map(_.serialize) should contain ("x_fault.a.a1 <= asUInt(bits(IdentityInjector.io.out, 6, 6))")
+    connections.map(_.serialize) should contain ("x_fault.a.a2 <= asUInt(bits(IdentityInjector.io.out, 5, 3))")
+    connections.map(_.serialize) should contain ("x_fault.b <= asUInt(bits(IdentityInjector.io.out, 2, 0))")
+    connections.last.expr.serialize should be ("cat(cat(asUInt(x.a.a1), asUInt(x.a.a2)), asUInt(x.b))")
+  }
+
   it should "error if a 0-width Vec is instrumented" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
     val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
