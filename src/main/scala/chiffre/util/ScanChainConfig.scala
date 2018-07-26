@@ -37,8 +37,8 @@ case class Arguments(
 
 class ScanChainUtils(implicit opt: Arguments) {
   val rand =
-    if (!opt.seed.isEmpty) new scala.util.Random(opt.seed.get)
-    else new scala.util.Random()
+    if (!opt.seed.isEmpty) { new scala.util.Random(opt.seed.get) }
+    else                   { new scala.util.Random()             }
 
   def getLength(s: Seq[FaultyComponent]): Int = s
     .foldLeft(0) { case (lenC, f) => lenC + f.injector.width }
@@ -59,7 +59,8 @@ class ScanChainUtils(implicit opt: Arguments) {
         case _              => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
     }
   } catch {
-    case _: ScanFieldUnboundException => throw new ScanChainException(s"Cannot bind ScanField $f based on available arguments")
+    case _: ScanFieldUnboundException =>
+      throw new ScanChainException(s"Cannot bind ScanField $f based on available arguments")
   }
 
   private def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): Unit =
@@ -93,6 +94,7 @@ class ScanChainUtils(implicit opt: Arguments) {
       .mkString("\n")
   }
 
+  // scalastyle:off magic.number
   def fletcher(x: String, length: Int, n: Int = 32): BigInt = {
     var a: BigInt = 0
     var b: BigInt = 0
@@ -104,12 +106,13 @@ class ScanChainUtils(implicit opt: Arguments) {
       println(s"[info] fletcher: a: 0x${a.toString(16)}, b: 0x${b.toString(16)}, word: 0x${word.toString(16)}")
     }
     (b << n/2) + a
-  }
+  } // scalastyle:on magic.number
 
   def padding(x: BigInt, width: Int): String = s"%${width}s"
     .format(x.toString(2))
     .replace(' ', '0')
 
+  // scalastyle:off magic.number
   def toBinary(chain: Seq[FaultyComponent]): Array[Byte] = {
     val length = getLength(chain)
     val pad = Seq.fill(((-length - 31) % 32) + 31)('0').mkString
@@ -120,11 +123,13 @@ class ScanChainUtils(implicit opt: Arguments) {
     println(s"[info] length: $length (0b${padding(length, 32)})")
     val raw = bits ++ padding(checksum, 32) ++ padding(length, 32)
     println(s"""[info] raw: ${raw.grouped(8).mkString(" ")}""")
-    println(s"""[info] raw: ${raw.grouped(4).toList.map(BigInt(_, 2).toString(16)).mkString.grouped(16).mkString(" ")}""")
+    println(
+      s"""[info] raw: ${raw.grouped(4).toList.map(BigInt(_, 2).toString(16)).mkString.grouped(16).mkString(" ")}""")
     println(s"[info] bytes: ${raw.grouped(8).toArray.map(BigInt(_, 2).toByte).mkString(" ")}")
     require(raw.size % 32 == 0)
     raw.grouped(8).toArray.reverse.map(BigInt(_, 2).toByte)
   }
+  // scalastyle:on magic.number
 }
 
 object Driver {
@@ -139,27 +144,30 @@ object Driver {
       .text("Output directory for scan chain binaries")
     opt[Double]('p', "probability")
       .action( (x, c) => c.copy(probability = Some(x)) )
-      .validate( x => if (x >= 0 && x <= 1) success
-                else failure("probability <value> must be on domain [0, 1]") )
+      .validate( x =>
+        if (x >= 0 && x <= 1) { success                                                 }
+        else                  { failure("probability <value> must be on domain [0, 1]") } )
       .text("Default bit flip probability")
     opt[Int]('s', "seed")
       .action( (x, c) => c.copy(seed = Some(x)) )
-      .validate( x => if (x >= 0) success
-                else failure("the seed <value> must be greater than or equal to 0") )
+      .validate( x =>
+        if (x >= 0) { success                                                        }
+        else        { failure("the seed <value> must be greater than or equal to 0") } )
       .text("Random number seed")
     opt[String]("mask")
-      .action( (x, c) => c.copy(mask = Some(BigInt(x, 16))) )
+      .action( (x, c) => c.copy(mask = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
       .text("A fault mask (bits that will be given a 'stuck-at' value")
     opt[String]("stuck-at")
-      .action( (x, c) => c.copy(stuckAt = Some(BigInt(x, 16))) )
+      .action( (x, c) => c.copy(stuckAt = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
       .text("Stuck at bits to apply")
     opt[BigInt]("cycle")
       .action( (x, c) => c.copy(cycle = Some(x) ))
-      .validate( x => if (x >= 0) success
-                else failure("the cycle <value> must be greater than or equal to 0") )
+      .validate( x =>
+        if (x >= 0) { success                                                         }
+        else        { failure("the cycle <value> must be greater than or equal to 0") } )
       .text("The cycle to inject faults")
     opt[String]("cycle-inject")
-      .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) )
+      .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
       .text("Bit string to inject at <cycle>")
     arg[File]("scan.json")
       .required()
@@ -187,8 +195,7 @@ object Driver {
         }
       }
 
-      if (opt.verbose)
-        println(util.serialize(chains, "[info] "))
+      if (opt.verbose) { println(util.serialize(chains, "[info] ")) }
 
       chains.foreach{ case (name, c) => util.toBinary(c) }
 

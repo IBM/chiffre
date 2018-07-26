@@ -68,12 +68,6 @@ trait ScanField extends HasName with HasWidth {
   }
 
   def isBound(): Boolean = value.nonEmpty
-
-  def ==(that: ScanField): Boolean = this.hashCode == that.hashCode
-
-  def !=(that: ScanField): Boolean = this.hashCode != that.hashCode
-
-  override def hashCode: Int = this.serialize().hashCode
 }
 
 trait ProbabilityBind { this: ScanField =>

@@ -62,4 +62,4 @@ class LfsrInjectorN(bitWidth: Int, val lfsrWidth: Int, val scanId: String) exten
   lazy val info = LfsrInjectorInfo(bitWidth, lfsrWidth)
 }
 
-class LfsrInjector32(bitWidth: Int, scanId: String) extends LfsrInjectorN(bitWidth, 32, scanId)
+class LfsrInjector32(bitWidth: Int, scanId: String) extends LfsrInjectorN(bitWidth, 32, scanId) // scalastyle:ignore

@@ -145,7 +145,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                 cmods(dutName) = inlineCompile(dut, Some(circuitNamespace))
               } catch {
                 case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
-                  s"Did not find '(bitWidth: Int, scanId: String)' constructor for injector '$dutName' (Did you forget to specify it?)")
+                  s"Did not find '(Int, String)' constructor for injector '$dutName' (Did you forget to specify it?)")
               }
               (cmods(dutName).circuit, cmods(dutName).circuit.modules,
                if (cmods(dutName).annotations.isEmpty) { Seq.empty }

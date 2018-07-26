@@ -52,7 +52,7 @@ trait ChiffreInjector { this: Injector =>
   chisel3.experimental.annotate {
     val x = this
     new ChiselAnnotation {
-      def toFirrtl = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
+      def toFirrtl: ScanChainDescriptionAnnotation = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
     }}
 }
 
