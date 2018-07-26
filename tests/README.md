@@ -6,7 +6,7 @@
 autoconf
 mkdir build
 cd build
-../configure --with-riscvtools=$HOME/repos/github.com/freechipsproject/rocket-chip/riscv-tools
+../configure --with-rocketchip=$HOME/repos/github.com/freechipsproject/rocket-chip
 make
 ```
 

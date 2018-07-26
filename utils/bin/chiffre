@@ -1,4 +1,5 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-java -jar $DIR/chiffre.jar chiffre.utils.Driver $@
+cmd="java -cp ${DIR}/chiffre.jar chiffre.util.Driver ${@:1}"
+eval $cmd

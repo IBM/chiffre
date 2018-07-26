@@ -10,11 +10,11 @@ AC_ARG_WITH(xlen,
         AC_SUBST(XLEN, 64)
         )
 
-AC_ARG_WITH(riscvtools,
-        [AS_HELP_STRING([--with-riscvtools=RISCVTOOLS],
-                [Set the path to an instanllation of riscv-tools])],
-        AC_SUBST(RISCVTOOLS, $withval),
-        AC_MSG_ERROR("You must specify a path to a riscv-tools repo (--with-riscvtools)", 1)
+AC_ARG_WITH(rocketchip,
+        [AS_HELP_STRING([--with-rocketchip=ROCKETCHIP_DIR],
+                [Set the path to an clone of the rocket-chip repository])],
+        AC_SUBST(ROCKETCHIP_DIR, $withval),
+        AC_MSG_ERROR("You must specify a path to a clone of the rocket-chip repo (--with-rocketchip)", 1)
         )
 
 AC_OUTPUT(

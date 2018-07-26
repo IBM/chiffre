@@ -1,7 +1,7 @@
 prefix		:= @prefix@
 abs_top_srcdir	:= @abs_top_srcdir@
 XLEN            := @XLEN@
-RISCVTOOLS      := @RISCVTOOLS@
+ROCKETCHIP_DIR  := @ROCKETCHIP_DIR@
 ROCC            := le-chiffre
 
 .PHONY: all clean dana smoke
@@ -13,7 +13,7 @@ vars = \
 	XLEN=$(XLEN) \
 	ROCC=$(ROCC) \
 	src_dir=$(abs_top_srcdir)/$@ \
-	RISCVTOOLS=$(RISCVTOOLS)
+	ROCKETCHIP_DIR=$(ROCKETCHIP_DIR)
 
 smoke:
 	mkdir -p $@

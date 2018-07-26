@@ -26,8 +26,9 @@
   */
 .macro init;
   RVTEST_XS_ENABLE
-  li a0, MSTATUS_FS & (MSTATUS_FS >> 1)
-  csrs mstatus, a0
+  RVTEST_FP_ENABLE
+  li a0, 1
+  csrs CSR_MCOUNTEREN, a0
 .endm
 
   RVTEST_CODE_BEGIN
@@ -42,7 +43,7 @@
   */
 	TEST_CASE( 1, x10, 0, LE_CHIFFRE_CYCLE(config_cycle, 10) )
 	TEST_CASE( 2, x10, 0, LE_CHIFFRE_ENABLE(10) )
-	TEST_CASE( 3, x10, 0xdeadbeef, csrr x10, cycle)
+	TEST_CASE( 3, x10, 0xdeadbeef, rdcycle x10 )
 	TEST_CASE( 4, x10, 0, LE_CHIFFRE_ENABLE(10) )
 
   /* Cycle injection into frm (floating point rounding mode)
