@@ -58,7 +58,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
   }
 
-  it should "error if a non-GroundType is instrumented" in {
+  it should "error if a 0-width Vec is instrumented" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
     val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
     val f = new FaultInstrumentation(compMap)
@@ -75,8 +75,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
     val circuit = Parser.parse(input)
     val state = CircuitState(circuit, MidForm, Seq.empty, None)
-
-    a [FaultInstrumentationException] should be thrownBy (f.execute(state))
+    a [FIRRTLException] should be thrownBy (f.execute(state))
   }
 
   it should "error if an ExtModule is instrumented" in {
