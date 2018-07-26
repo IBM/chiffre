@@ -21,8 +21,6 @@ stages:
 jobs:
   include:
     - stage: test
-      script: sbt ++2.11.12 $SBT_ARGS test
-    - stage: test
-      script: sbt ++2.12.4 $SBT_ARGS test
+      script: sbt $SBT_ARGS test
     - stage: test
       script: sbt $SBT_ARGS clean assembly publishLocal
