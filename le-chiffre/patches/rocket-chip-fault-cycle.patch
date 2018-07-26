@@ -1,0 +1,34 @@
+diff --git a/Makefrag b/Makefrag
+index 10c4ce9..875b5bd 100644
+--- a/Makefrag
++++ b/Makefrag
+@@ -21,7 +21,7 @@ SHELL := /bin/bash
+
+ ROCKET_CLASSES ?= "$(base_dir)/target/scala-2.11/classes:$(base_dir)/chisel3/target/scala-2.11/*"
+ FIRRTL_JAR ?= $(base_dir)/firrtl/utils/bin/firrtl.jar
+-FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp "$(FIRRTL_JAR)":"$(ROCKET_CLASSES)" firrtl.Driver
++FIRRTL ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -cp "$(FIRRTL_JAR)":"$(ROCKET_CLASSES)" firrtl.Driver --custom-transforms=chiffre.passes.FaultInstrumentationTransform -ll Info
+
+ # Build firrtl.jar and put it where chisel3 can find it.
+ $(FIRRTL_JAR): $(shell find $(base_dir)/firrtl/src/main/scala -iname "*.scala")
+diff --git a/src/main/scala/rocket/CSR.scala b/src/main/scala/rocket/CSR.scala
+index d61a7f2..7ee3e07 100644
+--- a/src/main/scala/rocket/CSR.scala
++++ b/src/main/scala/rocket/CSR.scala
+@@ -212,6 +212,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
+ }
+
+ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Parameters) extends CoreModule()(p)
++    with chiffre.ChiffreInjectee
+     with HasCoreParameters {
+   val io = new CSRFileIO
+
+@@ -865,4 +866,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
+   def readEPC(x: UInt) = ~(~x | Mux(reg_misa('c' - 'a'), 1.U, 3.U))
+   def isaStringToMask(s: String) = s.map(x => 1 << (x - 'A')).foldLeft(0)(_|_)
+   def formFS(fs: UInt) = if (coreParams.haveFSDirty) fs else Fill(2, fs.orR)
++
++  isFaulty(reg_fflags, "main", classOf[chiffre.inject.LfsrInjector32] )
++  isFaulty(reg_cycle,  "main", classOf[chiffre.inject.StuckAtInjectorWithId])
++  isFaulty(reg_frm,    "main", classOf[chiffre.inject.CycleInjector32])
+ }

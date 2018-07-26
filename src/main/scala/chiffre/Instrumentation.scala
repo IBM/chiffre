@@ -14,13 +14,13 @@
 package chiffre
 
 import chisel3._
-import chisel3.util._
 import chisel3.core.BaseModule
 import chisel3.internal.InstanceId
 import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform}
 import chiffre.passes.{ScanChainAnnotation, FaultInjectionAnnotation,
   ScanChainTransform, FaultInstrumentationTransform}
-import chiffre.scan._
+import chiffre.inject.Injector
+import chiffre.passes.ScanChainDescriptionAnnotation
 
 trait ChiffreController extends BaseModule {
   self: BaseModule =>
@@ -30,15 +30,12 @@ trait ChiffreController extends BaseModule {
   def scanId: String
 
   private def scanMaster(scan: Data, name: String): Unit = {
-    if (scanId == null) { // scalastyle:off
-      throw new Exception(
-        "Chiffre Controller 'scanId' should be a 'lazy val'") }
-    annotate(
-      new ChiselAnnotation with RunFirrtlTransform {
-        def toFirrtl = ScanChainAnnotation(
-          scan.toNamed,
-          "master", "scan", name, None)
-        def transformClass = classOf[ScanChainTransform]
+    // if (scanId == null) { // scalastyle:off
+    //   throw new Exception(
+    //     "Chiffre Controller 'scanId' should be a 'lazy val'") }
+    chisel3.experimental.annotate(
+      new ChiselAnnotation {
+        def toFirrtl = ScanChainAnnotation(scan.toNamed, "master", "scan", name, None)
       }
     )
   }
@@ -49,16 +46,25 @@ trait ChiffreController extends BaseModule {
   scanMaster(scan, scanId)
 }
 
+trait ChiffreInjector { this: Injector =>
+  val scanId: String
+
+  chisel3.experimental.annotate {
+    val x = this
+    new ChiselAnnotation {
+      def toFirrtl: ScanChainDescriptionAnnotation = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
+    }}
+}
+
 trait ChiffreInjectee extends BaseModule {
   self: BaseModule =>
 
-  def isFaulty[T <: inject.Injector](component: InstanceId, id: String,
-                                     tpe: Class[T]): Unit = {
+  def isFaulty[T <: Injector](component: InstanceId, id: String, gen: Class[_ <: Injector]): Unit = {
     component match {
       case c: Bits =>
-        annotate(
+        chisel3.experimental.annotate(
           new ChiselAnnotation with RunFirrtlTransform {
-            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, tpe.getName)
+            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, gen)
             def transformClass = classOf[FaultInstrumentationTransform]
           })
       case c => throw new Exception(s"Type not implemented for: $c")

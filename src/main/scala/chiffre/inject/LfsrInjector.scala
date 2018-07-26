@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,18 @@
 package chiffre.inject
 
 import chisel3._
-import chisel3.util._
-import chiffre.scan._
+import chiffre.ChiffreInjector
 
-class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
+import chiffre.{ScanField, InjectorInfo, ProbabilityBind}
+
+case class Seed(width: Int) extends ScanField
+case class Difficulty(width: Int) extends ScanField with ProbabilityBind
+
+case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo {
+  val fields = Seq.fill(bitWidth)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth))).flatten
+}
+
+sealed class LfsrInjector(val lfsrWidth: Int) extends Injector(1) {
   val difficulty = RegInit(0.U(lfsrWidth.W))
   val seed = RegInit(1.U(lfsrWidth.W))
   lazy val info = LfsrInjectorInfo(1, lfsrWidth)
@@ -26,34 +34,32 @@ class LfsrInjector(lfsrWidth: Int, id: String) extends OneBitInjector(id) {
   lfsr.io.seed.valid := io.scan.en
   lfsr.io.seed.bits := seed
 
-  val fire = enabled && (lfsr.io.y < difficulty)
+  val fire = enabled && (lfsr.io.y <= difficulty)
   io.out := Mux(fire, ~io.in, io.in)
 
   when (io.scan.clk) {
     enabled := false.B
-    seed := io.scan.in ## (seed >> 1)
-    difficulty := seed(0) ## (difficulty >> 1)
+    seed := (io.scan.in ## seed) >> 1
+    difficulty := (seed(0) ## difficulty) >> 1
   }
 
   io.scan.out := difficulty(0)
 
-  when (fire) {
-    printf(s"[info] $name fire\n")
-  }
-
-  when (io.scan.en && !enabled) {
+  when (enabled && RegNext(!enabled)) {
     printf(s"""|[info] $name enabled
                |[info]   - seed: 0x%x
                |[info]   - difficulty: 0x%x
                |""".stripMargin, seed, difficulty)
   }
 
-  when (io.scan.en && enabled) {
+  when (!enabled && RegNext(enabled)) {
     printf(s"[info] $name disabled\n")
   }
 }
 
-class LfsrInjector32(n: Int, id: String)
-    extends InjectorBitwise(n, id, new LfsrInjector(32, id)) { // scalastyle:off
-  lazy val info = LfsrInjectorInfo(n, 32) // scalastyle:off
+class LfsrInjectorN(bitWidth: Int, val lfsrWidth: Int, val scanId: String) extends
+    InjectorBitwise(bitWidth, new LfsrInjector(lfsrWidth)) with ChiffreInjector {
+  lazy val info = LfsrInjectorInfo(bitWidth, lfsrWidth)
 }
+
+class LfsrInjector32(bitWidth: Int, scanId: String) extends LfsrInjectorN(bitWidth, 32, scanId) // scalastyle:ignore

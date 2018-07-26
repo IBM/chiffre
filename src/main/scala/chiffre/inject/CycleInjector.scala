@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,23 @@
 package chiffre.inject
 
 import chisel3._
-import chisel3.util._
-import chiffre.scan._
+import chiffre.ChiffreInjector
 
-class CycleInjector(n: Int, cycleWidth: Int, id: String)
-    extends Injector(n, id) {
+import chiffre.{InjectorInfo, ScanField, HasWidth}
+
+case class Cycle(width: Int) extends ScanField
+case class CycleInject(width: Int) extends ScanField
+
+case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int) extends InjectorInfo {
+  val fields = Seq(Cycle(cycleWidth), CycleInject(bitWidth))
+}
+
+class CycleInjector(bitWidth: Int, val cycleWidth: Int) extends Injector(bitWidth) {
   val cycleTarget = Reg(UInt(cycleWidth.W))
   val cycleCounter = Reg(UInt(cycleWidth.W))
-  val flipMask = Reg(UInt(n.W))
+  val flipMask = Reg(UInt(bitWidth.W))
 
-  lazy val info = CycleInjectorInfo(n, cycleWidth)
+  lazy val info = CycleInjectorInfo(bitWidth, cycleWidth)
 
   val fire = enabled & (cycleCounter === cycleTarget)
   io.out := Mux(fire, io.in ^ flipMask, io.in)
@@ -35,27 +42,28 @@ class CycleInjector(n: Int, cycleWidth: Int, id: String)
   when (io.scan.clk) {
     enabled := false.B
     cycleCounter := 0.U
-    cycleTarget := io.scan.in ## (cycleTarget >> 1)
-    flipMask := cycleTarget(0) ## (flipMask >> 1)
+    cycleTarget := (io.scan.in ## cycleTarget) >> 1
+    flipMask := (cycleTarget(0) ## flipMask) >> 1
   }
   io.scan.out := flipMask(0)
 
-  when (io.scan.en && !enabled) {
+  when (enabled && RegNext(!enabled)) {
     printf(s"""|[info] $name enabled
                |[info]   - target: 0x%x
                |[info]   - mask: 0x%x
                |""".stripMargin, cycleTarget, flipMask)
   }
 
-  when (io.scan.en && enabled) {
+  when (!enabled && RegNext(enabled)) {
     printf(s"[info] $name disabled\n")
   }
 
   when (fire) {
-    printf(s"[info] $name injecting!\n")
+    printf(s"[info] $name injecting 0x%x into 0x%x to output 0x%x!\n", flipMask, io.in, io.out)
+    enabled := false.B
   }
 }
 
 // scalastyle:off magic.number
-class CycleInjector32(n: Int, id: String) extends CycleInjector(n, 32, id)
+class CycleInjector32(bitWidth: Int, val scanId: String) extends CycleInjector(bitWidth, 32) with ChiffreInjector
 // scalastyle:on magic.number

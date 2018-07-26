@@ -1,5 +1,7 @@
 ## Chained Hierarchical Injection for Fault Resiliency Evaluation (Chiffre)
 
+[![Build Status](https://travis-ci.com/IBM/chiffre.svg?branch=master)](https://travis-ci.com/IBM/chiffre)
+
 This provides a framework for automatically instrumenting a hardware design with run-time configurable fault injectors.
 This relies on three major components:
   * A [Chisel](https://github.com/freechipsproject/chisel3) library that emits _annotations_ marking specific circuit components as fault injectable
@@ -48,9 +50,9 @@ class MyModule extends Module with ChiffreInjectee {
 }
 ```
 
-In __Rocket-Chip Assisted Injection__, the fault controller is a provided Rocket Custom Coprocessor (RoCC) called [`LeChiffre`](src/main/scala/chiffre/LeChiffre.scala).
+In __Rocket-Chip Assisted Injection__, the fault controller is a provided Rocket Custom Coprocessor (RoCC) called [`LeChiffre`](le-chiffre/src/main/scala/chiffre/LeChiffre.scala).
 This can then be used to orchestrate fault injection experiments in external components or inside Rocket itself.
-We provide an example [patch](patches/rocket-chip-fault-cycle.patch) that makes certain control and status registers (CSRs) in rocket fault injectable and a bare metal test program that makes sure this fault injection is working.
+We provide an example [patch](le-chiffre/patches/rocket-chip-fault-cycle.patch) that makes certain control and status registers (CSRs) in rocket fault injectable and a bare metal test program that makes sure this fault injection is working.
 You can build an emulator with the correct configuration using the following (note: this will clone the `chiffre` repository inside of your Rocket Chip clone directory):
 
 ``` bash
@@ -59,7 +61,7 @@ cd $ROCKETCHIP_DIR
 git clone https://github.com/ibm/chiffre chiffre
 git apply chiffre/patches/rocket-chip-fault-cycle.patch
 cd emulator
-make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS=chiffre
+make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS="le-chiffre/chiffre chiffre"
 ```
 
 You can then run the test provided by [chiffre/tests](tests) (instructions provided in that directory).

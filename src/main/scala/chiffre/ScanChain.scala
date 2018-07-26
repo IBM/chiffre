@@ -14,7 +14,7 @@
 package chiffre
 
 import chisel3._
-import chiffre.scan.InjectorInfo
+import chisel3.core.BaseModule
 
 class ScanIo extends Bundle {
   val clk = Input(Bool())
@@ -23,8 +23,15 @@ class ScanIo extends Bundle {
   val out = Output(Bool())
 }
 
-trait AddsScanState {
-  self: Module =>
+trait HasScanState { this: BaseModule =>
+  val info: InjectorInfo
+}
 
-  def info: InjectorInfo
+case class FaultyComponent(name: String, injector: InjectorInfo) {
+  def serialize(indent: String): String =
+    s"""|${indent}- $name:
+        |${injector.serialize(indent + "  ")}"""
+      .stripMargin
+
+  def toBits(): String = injector.toBits()
 }

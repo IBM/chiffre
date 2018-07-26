@@ -13,18 +13,18 @@
 // limitations under the License.
 package chiffre.passes
 
+import chiffre.inject.Injector
 import firrtl._
 import firrtl.ir._
-import firrtl.passes._
+import firrtl.passes.{PassException, ToWorkingIR}
 import firrtl.passes.wiring.SinkAnnotation
-import firrtl.annotations._
+import firrtl.annotations.{Annotation, ComponentName, ModuleName, CircuitName}
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
 
 case class FaultInstrumentationException(msg: String) extends PassException(msg)
 
-case class FaultInstrumentationInfo(orig: ComponentName, conn: ComponentName,
-  repl: ComponentName)
+case class FaultInstrumentationInfo(orig: ComponentName, conn: ComponentName, repl: ComponentName)
 
 case class Modifications(
   defines: Seq[Statement] = Seq.empty,
@@ -62,9 +62,7 @@ case class Modifications(
       .stripMargin
 }
 
-class FaultInstrumentation(
-  compMap: Map[String, Seq[(ComponentName, String, String)]])
-    extends Transform {
+class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Class[_ <: Injector])]]) extends Transform {
   def inputForm: CircuitForm = MidForm
   def outputForm: CircuitForm = MidForm
   def execute(state: CircuitState): CircuitState = {
@@ -82,36 +80,22 @@ class FaultInstrumentation(
                annotations = AnnotationSeq(inAnno ++ ax))
   }
 
-  private def inlineCompile(name: String, width: Int, id: String,
-                            ns: Option[Namespace] = None): CircuitState = {
+  private def inlineCompile(gen: () => chisel3.Module, ns: Option[Namespace] = None): CircuitState = {
     def genName(name: String, n: Option[Namespace]): String = n match {
       case Some(nn) => nn.newName(name)
       case _ => name
     }
 
-    val args = Array[AnyRef](new java.lang.Integer(width), id)
-    val gen = () => Class.forName(name)
-      .getConstructors()(0)
-      .newInstance(args:_*)
-      .asInstanceOf[chisel3.Module]
-    val options =
-      new ExecutionOptionsManager("Fault Instrumentation Inline")
-          with HasFirrtlOptions
-          with chisel3.HasChiselExecutionOptions {
-        chiselOptions = new chisel3.ChiselExecutionOptions(
-          runFirrtlCompiler = false
-        )
-      }
-    val (chirrtl: Circuit,
-         inlineAnnos: AnnotationSeq) =  chisel3.Driver
-      .execute(options, gen) match {
-        case chisel3.ChiselExecutionSuccess(
-          Some(chisel3.internal.firrtl.Circuit(_,_,annos)),ast,_) =>
-          (Parser.parse(ast), AnnotationSeq(annos.map(_.toFirrtl)))
-        case chisel3.ChiselExecutionFailure(m) =>
-          throw new FaultInstrumentationException(
-            s"Chisel inline compilation failed with '$m'")
-      }
+    val options = new ExecutionOptionsManager("Fault Instrumentation Inline") with HasFirrtlOptions
+        with chisel3.HasChiselExecutionOptions {
+      chiselOptions = new chisel3.ChiselExecutionOptions(runFirrtlCompiler = false )
+    }
+    val (chirrtl: Circuit, inlineAnnos: AnnotationSeq) = chisel3.Driver.execute(options, gen) match {
+      case chisel3.ChiselExecutionSuccess(Some(chisel3.internal.firrtl.Circuit(_,_,annos)),ast,_) =>
+        (Parser.parse(ast), AnnotationSeq(annos.map(_.toFirrtl)))
+      case chisel3.ChiselExecutionFailure(m) =>
+        throw new FaultInstrumentationException(s"Chisel inline compilation failed with '$m'")
+    }
     val midFirrtl = (new MiddleFirrtlCompiler)
       .compileAndEmit(CircuitState(chirrtl, ChirrtlForm))
       .circuit
@@ -127,8 +111,7 @@ class FaultInstrumentation(
   }
 
   private def analyze(c: Circuit): Map[String, Modifications] = {
-    val mods = new mutable.HashMap[String, Modifications]
-      .withDefaultValue(Modifications())
+    val mods = new mutable.HashMap[String, Modifications].withDefaultValue(Modifications())
     val cmods = new mutable.HashMap[String, CircuitState]()
     val circuitNamespace = Namespace(c)
 
@@ -139,7 +122,7 @@ class FaultInstrumentation(
           val moduleNamespace = Namespace(m)
           var scanIn: Option[String] = None
           var scanOut: String = ""
-          compMap(m.name) map { case (comp, id, injector)  =>
+          compMap(m.name) map { case (comp, id, gen)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
             t match {
               case _: GroundType =>
@@ -150,15 +133,23 @@ class FaultInstrumentation(
             val numBits = width match { case IntWidth(x) => x.toInt }
             val tx = UIntType(width)
 
-            val (subcir, defms, annosx) = if (cmods.contains(injector)) {
-              (cmods(injector).circuit, Seq.empty, Seq.empty)
+            val args = Array[AnyRef](new java.lang.Integer(numBits), id)
+            val dutName = gen.getName
+            val dut = () => gen.getConstructors()(0)
+              .newInstance(args: _*)
+              .asInstanceOf[chisel3.Module]
+            val (subcir, defms, annosx) = if (cmods.contains(dutName)) {
+              (cmods(dutName).circuit, Seq.empty, Seq.empty)
             } else {
-              cmods(injector) = inlineCompile(injector, numBits, id,
-                                              Some(circuitNamespace))
-              (cmods(injector).circuit,
-               cmods(injector).circuit.modules,
-               if (cmods(injector).annotations.isEmpty) { Seq.empty }
-               else { cmods(injector).annotations.toSeq   } )
+              try {
+                cmods(dutName) = inlineCompile(dut, Some(circuitNamespace))
+              } catch {
+                case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
+                  s"Did not find '(Int, String)' constructor for injector '$dutName' (Did you forget to specify it?)")
+              }
+              (cmods(dutName).circuit, cmods(dutName).circuit.modules,
+               if (cmods(dutName).annotations.isEmpty) { Seq.empty }
+               else { cmods(dutName).annotations.toSeq   } )
             }
             val defi = moduleNamespace.newName(subcir.main)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
@@ -167,9 +158,6 @@ class FaultInstrumentation(
               Seq("en", "clk", "in", "out").map( s =>
                 ComponentName(s"$defi.io.scan.$s",
                               ModuleName(m.name, CircuitName(c.main))) )
-
-            val wt = classOf[firrtl.passes.wiring.WiringTransform]
-            val st = classOf[chiffre.passes.ScanChainTransform]
 
             val x = mods(m.name)
             mods(m.name) = x.copy(
@@ -188,7 +176,7 @@ class FaultInstrumentation(
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
                 SinkAnnotation(scanClk, "scan_clk"),
-                ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
+                ScanChainInjectorAnnotation(comp, id, subcir.main),
                 ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
                 ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),

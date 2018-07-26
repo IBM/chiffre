@@ -16,5 +16,5 @@ OBJDUMP ?= \
 LDFLAGS := $(LDFLAGS) \
 	-L$(abs_top_srcdir)/libs/build/$(TARGET)
 
-ENV_P = $(RISCVTOOLS)/riscv-tests/env/p
-ENV_V = $(RISCVTOOLS)/riscv-tests/env/v
+ENV_P = $(ROCKETCHIP_DIR)/riscv-tools/riscv-tests/env/p
+ENV_V = $(ROCKETCHIP_DIR)/riscv-tools/riscv-tests/env/v

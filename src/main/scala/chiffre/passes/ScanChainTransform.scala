@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,15 @@ package chiffre.passes
 
 import firrtl._
 import firrtl.ir._
-import firrtl.passes._
+import firrtl.passes.PassException
 import firrtl.passes.wiring.{SinkAnnotation, SourceAnnotation}
-import firrtl.annotations.{ComponentName, ModuleName, CircuitName,
-  SingleTargetAnnotation, Annotation}
-import firrtl.annotations.AnnotationUtils._
+import firrtl.annotations.{ComponentName, ModuleName, CircuitName, SingleTargetAnnotation, Annotation}
+import chiffre.{InjectorInfo, FaultyComponent}
+import chiffre.scan.{ScanChain, JsonProtocol}
+
 import scala.collection.mutable
-import java.io.FileWriter
-import chiffre.scan.{ScanChain, InjectorInfo, FaultyComponent, JsonProtocol}
+import scala.collection.immutable.ListMap
+import java.io.{File, FileWriter}
 
 case class ScanChainException(msg: String) extends PassException(msg)
 
@@ -31,7 +32,7 @@ case class ScanChainInfo(
   /* Everything here is keyed by the injector component */
   slaveIn: Map[ComponentName, ComponentName] = Map.empty,
   slaveOut: Map[ComponentName, ComponentName] = Map.empty,
-  injectors: Map[ComponentName, ModuleName] = Map.empty,
+  injectors: ListMap[ComponentName, ModuleName] = ListMap.empty,
   /* This is keyed by the injector module name */
   description: Map[ModuleName, InjectorInfo] = Map.empty) {
   // scalastyle:off line.size.limit
@@ -45,13 +46,9 @@ case class ScanChainInfo(
       .stripMargin
   // scalastyle:on line.size.limit
 
-  def toScanChain(name: String): ScanChain = {
-    val components: Seq[FaultyComponent] = injectors.map{ case(c, m) =>
-      val id = s"${c.module.circuit.name}.${c.module.name}.${c.name}"
-      FaultyComponent(id, description(m))
-    }.toSeq
-    Map(name -> components)
-  }
+  def toFaultyComponent: Seq[FaultyComponent] = injectors
+    .map{ case(c, m) => FaultyComponent(c.serialize, description(m)) }
+    .toSeq
 }
 
 sealed trait ScanAnnos
@@ -61,6 +58,7 @@ case class ScanChainAnnotation(
   ctrl: String,
   dir: String,
   id: String,
+  // [todo] remove key, is this used?
   key: Option[ComponentName]) extends SingleTargetAnnotation[ComponentName]
     with ScanAnnos {
   def duplicate(x: ComponentName): ScanChainAnnotation = this.copy(target = x)
@@ -69,7 +67,6 @@ case class ScanChainAnnotation(
 case class ScanChainInjectorAnnotation(
   target: ComponentName,
   id: String,
-  instanceName: String,
   moduleName: String) extends SingleTargetAnnotation[ComponentName]
     with ScanAnnos {
   def duplicate(x: ComponentName): ScanChainInjectorAnnotation =
@@ -88,13 +85,9 @@ case class ScanChainDescriptionAnnotation(
 class ScanChainTransform extends Transform {
   def inputForm: CircuitForm = MidForm
   def outputForm: CircuitForm = HighForm
-  def transforms: Seq[Transform] = Seq(
-    new firrtl.passes.wiring.WiringTransform
-  )
 
   // scalastyle:off cyclomatic.complexity
-  def analyze(circuit: Circuit, annos: Seq[Annotation]):
-      Map[String, ScanChainInfo] = {
+  def analyze(circuit: Circuit, annos: Seq[Annotation]): Map[String, ScanChainInfo] = {
     val s = mutable.HashMap[String, ScanChainInfo]()
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) => (ctrl, dir) match {
@@ -104,7 +97,8 @@ class ScanChainTransform extends Transform {
       case _ =>
     }
     def exceptionIfUnknownId(id: String): Unit = if (!s.contains(id)) {
-      throw new ScanChainException(s"No known scan chain master '$id' (did you misspell it?)") }
+      throw new ScanChainException(
+        s"No known scan chain master '$id' (Did you misspell it? Did you not include an injector?)") }
     annos.foreach {
       case ScanChainAnnotation(comp, ctrl, dir, id, key) =>
         exceptionIfUnknownId(id)
@@ -114,7 +108,7 @@ class ScanChainTransform extends Transform {
             case ("slave", "out") => s(id).copy(slaveOut = s(id).slaveOut ++ Map(key.get -> comp))
             case _                => s(id)
           }
-      case ScanChainInjectorAnnotation(comp, id, inst, mod) =>
+      case ScanChainInjectorAnnotation(comp, id, mod) =>
         exceptionIfUnknownId(id)
         s(id) = s(id).copy(injectors = s(id).injectors ++ Map(comp -> ModuleName(mod, comp.module.circuit)))
       case _ =>
@@ -128,24 +122,28 @@ class ScanChainTransform extends Transform {
     s.toMap
   } // scalastyle:on cyclomatic.complexity
 
+  /** Run the transform
+    *
+    * @param state a circuit
+    * @todo order the scan chain based on distance
+    */
   def execute(state: CircuitState): CircuitState = {
-    val myAnnos = state.annotations.collect { case a: ScanAnnos => a }
+    val targetDir = new File(state.annotations.collectFirst{ case a: TargetDirAnnotation => a.value }.getOrElse("."))
+    val myAnnos = state.annotations.collect{ case a: ScanAnnos => a }
     myAnnos match {
       case Nil => state
       case p =>
-        val s = analyze(state.circuit, p)
+        // s is a map of scan chains indexed by scan chain id
+        val s: Map[String, ScanChainInfo] = analyze(state.circuit, p)
 
         s.foreach{ case (k, v) => logger.info(
                     s"""|[info] scan chain:
                         |[info]   name: ${k}
                         |${v.serialize("[info]   ")}""".stripMargin) }
 
-        // [todo] Order the scan chain based on distance
-
-        // [todo] Set the emitted directory and file name
-        val sc = s.flatMap{ case(k, v) => v.toScanChain(k) }
-
-        val jsonFile = new FileWriter("scan-chain.json")
+        val sc = s.flatMap{ case(k, v) => Map(k -> v.toFaultyComponent) }
+        if (!targetDir.exists()) { targetDir.mkdirs() }
+        val jsonFile = new FileWriter(targetDir + "/scan-chain.json")
         jsonFile.write(JsonProtocol.serialize(sc))
         jsonFile.close()
 
@@ -173,10 +171,7 @@ class ScanChainTransform extends Transform {
           a ++ masterAnnotations ++ annotations
         }
 
-        val sx = state.copy(annotations = AnnotationSeq(state.annotations.toSeq ++ ax))
-
-        transforms.foldLeft(sx){ (s, x) => x.runTransform(s) }
-          .copy(annotations = (state.annotations.toSet -- myAnnos.toSet).toSeq)
+        state.copy(annotations = ((state.annotations.toSeq ++ ax).toSet -- myAnnos.toSet).toSeq)
     }
   }
 }

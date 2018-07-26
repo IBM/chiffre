@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,22 +14,31 @@
 package chiffre.inject
 
 import chisel3._
-import chisel3.util._
-import chiffre.scan._
+import chisel3.util.Fill
+import chiffre.ChiffreInjector
 
-class StuckAt(n: Int, id: String) extends Injector(n, id) {
-  val mask = Reg(UInt(n.W))
-  val value = Reg(UInt(n.W))
+import chiffre.{ScanField, InjectorInfo}
 
-  lazy val info = StuckAtInjectorInfo(n)
+case class Mask(width: Int) extends ScanField
+case class StuckAt(width: Int) extends ScanField
+
+case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
+  val fields = Seq(Mask(bitWidth), StuckAt(bitWidth))
+}
+
+class StuckAtInjector(val bitWidth: Int) extends Injector(bitWidth) {
+  val mask = Reg(UInt(bitWidth.W))
+  val value = Reg(UInt(bitWidth.W))
+
+  lazy val info = StuckAtInjectorInfo(bitWidth)
 
   val select = mask & Fill(mask.getWidth, enabled)
   io.out := (io.in & ~select) | (value & select)
 
   when (io.scan.clk) {
     enabled := false.B
-    mask := io.scan.in ## (mask >> 1)
-    value := mask(0) ## (value >> 1)
+    mask := (io.scan.in ## mask) >> 1
+    value := (mask(0) ## value) >> 1
   }
 
   io.scan.out := value(0)
@@ -45,3 +54,5 @@ class StuckAt(n: Int, id: String) extends Injector(n, id) {
     printf(s"[info] $name disabled\n")
   }
 }
+
+class StuckAtInjectorWithId(bitWidth: Int, val scanId: String) extends StuckAtInjector(bitWidth) with ChiffreInjector
