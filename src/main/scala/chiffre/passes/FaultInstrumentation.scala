@@ -127,7 +127,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
             val width = bitWidth(t)
             val tx = UIntType(IntWidth(width))
 
-            val args = Array[AnyRef](new java.lang.Integer(numBits), id)
+            val args = Array[AnyRef](new java.lang.Integer(width.toInt), id)
             val dutName = gen.getName
             val dut = () => gen.getConstructors()(0)
               .newInstance(args: _*)
@@ -176,7 +176,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
                 SinkAnnotation(scanClk, "scan_clk"),
-                ScanChainInjectorAnnotation(comp, id, defi, subcir.main),
+                ScanChainInjectorAnnotation(comp, id, subcir.main),
                 ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
                 ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),
