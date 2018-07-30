@@ -62,7 +62,7 @@ trait ChiffreInjectee extends BaseModule {
   def isFaulty[T <: Injector](component: InstanceId, id: String, gen: Class[_ <: Injector]): Unit = {
     component match {
       case c: Data =>
-        annotate(
+        chisel3.experimental.annotate(
           new ChiselAnnotation with RunFirrtlTransform {
             def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, gen)
             def transformClass = classOf[FaultInstrumentationTransform]
