@@ -23,16 +23,14 @@ import firrtl.ir._
 import firrtl.analyses.InstanceGraph
 import chisel3.iotesters.ChiselFlatSpec
 import firrtl.annotations.{ComponentName, ModuleName, CircuitName}
+import firrtl.Mappers._
 
 import scala.collection.mutable.ArrayBuffer
 
 class FaultInstrumentationSpec extends ChiselFlatSpec {
-  private def collect(connections: ArrayBuffer[Connect])(s: Statement): Statement = {
-    s match {
-      case b: Block => b.mapStmt(collect(connections))
-      case c: Connect => connections += c; c
-      case _ => s
-    }
+  private def collect(connections: ArrayBuffer[Connect])(s: Statement): Statement = s map collect(connections) match {
+    case c: Connect => connections += c; c
+    case sx => sx
   }
 
   behavior of "FaultInstrumentation"
