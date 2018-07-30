@@ -124,7 +124,11 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
           var scanOut: String = ""
           compMap(m.name) map { case (comp, id, gen)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
-            val args = Array[AnyRef](new java.lang.Integer(bitWidth(t).toInt), id)
+            val width = bitWidth(t)
+            if (width == 0)
+              throw new FaultInstrumentationException("Cannot instrument zero-width signals")
+
+            val args = Array[AnyRef](new java.lang.Integer(width.toInt), id)
             val dutName = gen.getName
             val dut = () => gen.getConstructors()(0)
               .newInstance(args: _*)

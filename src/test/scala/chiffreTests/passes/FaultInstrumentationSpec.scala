@@ -190,7 +190,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
 
     val circuit = Parser.parse(input)
     val state = CircuitState(circuit, MidForm, Seq.empty, None)
-    a [FIRRTLException] should be thrownBy (f.execute(state))
+    a [FaultInstrumentationException] should be thrownBy (f.execute(state))
   }
 
   it should "error if an ExtModule is instrumented" in {
