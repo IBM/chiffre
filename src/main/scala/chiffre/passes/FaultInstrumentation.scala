@@ -124,10 +124,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
           var scanOut: String = ""
           compMap(m.name) map { case (comp, id, gen)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
-            val width = bitWidth(t)
-            val tx = UIntType(IntWidth(width))
-
-            val args = Array[AnyRef](new java.lang.Integer(width.toInt), id)
+            val args = Array[AnyRef](new java.lang.Integer(bitWidth(t).toInt), id)
             val dutName = gen.getName
             val dut = () => gen.getConstructors()(0)
               .newInstance(args: _*)
@@ -152,9 +149,6 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
               Seq("en", "clk", "in", "out").map( s =>
                 ComponentName(s"$defi.io.scan.$s",
                               ModuleName(m.name, CircuitName(c.main))) )
-
-            val wt = classOf[firrtl.passes.wiring.WiringTransform]
-            val st = classOf[chiffre.passes.ScanChainTransform]
 
             val faulty = DefWire(NoInfo, rename, t)
             val data = fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
