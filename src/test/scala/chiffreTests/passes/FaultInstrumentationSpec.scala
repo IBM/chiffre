@@ -64,6 +64,30 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
   }
 
+  it should "inject faults into a ground type" in {
+    val component = ComponentName("x", ModuleName("top", CircuitName("top")))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
+    val f = new FaultInstrumentation(compMap)
+
+    val input = """|circuit top:
+                   |  module top:
+                   |    input clock: Clock
+                   |    input in: UInt<4>
+                   |    output out: UInt<4>
+                   |    reg x: UInt<4>, Clock
+                   |    x <= in
+                   |    out <= x
+                   |""".stripMargin
+
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+    val connections = new ArrayBuffer[Connect]()
+    f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
+    connections.map(_.serialize) should contain ("out <= x_fault")
+    connections.map(_.serialize) should contain ("x_fault <= asUInt(bits(IdentityInjector.io.out, 3, 0))")
+    connections.last.expr.serialize should be ("asUInt(x)")
+  }
+
   it should "inject faults into a vector type" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
     val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
