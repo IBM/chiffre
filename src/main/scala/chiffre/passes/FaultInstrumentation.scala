@@ -14,6 +14,7 @@
 package chiffre.passes
 
 import chiffre.inject.Injector
+import chiffre.util.removeZeroWidth
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.{PassException, ToWorkingIR}
@@ -155,9 +156,9 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                               ModuleName(m.name, CircuitName(c.main))) )
 
             val faulty = DefWire(NoInfo, rename, t)
-            val data = fromBits(WRef(faulty), toExp(s"$defi.io.out")) match {
-              case Block(stmts: Seq[Statement]) => stmts :+ Connect(NoInfo, toExp(s"$defi.io.in"),
-                                                                    toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER)))
+            val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"$defi.io.out")) match {
+              case Block(stmts: Seq[Statement]) =>
+                stmts :+ Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
             }
             val x = mods(m.name)
             mods(m.name) = x.copy(

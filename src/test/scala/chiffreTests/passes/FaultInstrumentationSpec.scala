@@ -196,6 +196,29 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     connections.last.expr.serialize should be ("cat(cat(cat(asUInt(x[1].a.a1), cat(asUInt(x[1].a.a2[1]), asUInt(x[1].a.a2[0]))), asUInt(x[1].b)), cat(cat(asUInt(x[0].a.a1), cat(asUInt(x[0].a.a2[1]), asUInt(x[0].a.a2[0]))), asUInt(x[0].b)))")
   }
 
+  it should "skip over 0-width bundle fields" in {
+    val component = ComponentName("x", ModuleName("top", CircuitName("top")))
+    val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
+    val f = new FaultInstrumentation(compMap)
+
+    val tpe = "{a: UInt<3>, b: UInt<5>}"
+    val input = """|circuit top:
+                   |  module top:
+                   |    input clock: Clock
+                   |    input in: {a: UInt<3>, b: UInt<5>[0]}
+                   |    output out: UInt<3>
+                   |    reg x: {a: UInt<3>, b: UInt<5>[0]}, Clock
+                   |    x <= in
+                   |    out <= x.a
+                   |""".stripMargin
+
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+    val connections = new ArrayBuffer[Connect]()
+    f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
+    connections.foreach(c => println(c.serialize))
+  }
+
   it should "error if a 0-width Vec is instrumented" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
     val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
