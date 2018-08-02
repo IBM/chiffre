@@ -1,9 +1,25 @@
-// See LICENSE for license details.
+// Copyright 2018 IBM
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package chiffre.util
+
+import chiffre.{ScanField, FaultyComponent, InjectorInfo, ScanFieldUnboundException}
+import chiffre.scan.{ScanChain, JsonProtocol}
+import chiffre.inject.{Seed, Difficulty, Mask, StuckAt, Cycle, CycleInject}
 import scopt.OptionParser
 import java.io.File
 import java.io.FileOutputStream
 import scala.io.Source
-import chiffre.scan._
 
 case class ScanChainException(msg: String) extends Exception(msg)
 
@@ -15,7 +31,7 @@ case class Arguments(
 
 class ScanChainUtils(implicit opt: Arguments) {
   def getLength(s: Seq[FaultyComponent]): Int = s
-    .foldLeft(0) { case (lenC, f) => lenC + f.injector.getWidth }
+    .foldLeft(0) { case (lenC, f) => lenC + f.injector.width }
 
   def getComponentNames(s: Seq[FaultyComponent]): Seq[String] = s
     .map(_.name)
@@ -36,6 +52,7 @@ class ScanChainUtils(implicit opt: Arguments) {
       .mkString("\n")
   }
 
+  // scalastyle:off magic.number
   def fletcher(x: String, length: Int, n: Int = 32): BigInt = {
     var a: BigInt = 0
     var b: BigInt = 0
@@ -47,12 +64,13 @@ class ScanChainUtils(implicit opt: Arguments) {
       println(s"[info] fletcher: a: 0x${a.toString(16)}, b: 0x${b.toString(16)}, word: 0x${word.toString(16)}")
     }
     (b << n/2) + a
-  }
+  } // scalastyle:on magic.number
 
   def padding(x: BigInt, width: Int): String = s"%${width}s"
     .format(x.toString(2))
     .replace(' ', '0')
 
+  // scalastyle:off magic.number
   def toBinary(chain: Seq[FaultyComponent]): Array[Byte] = {
     val length = getLength(chain)
     val pad = Seq.fill(((-length - 31) % 32) + 31)('0').mkString
@@ -63,14 +81,16 @@ class ScanChainUtils(implicit opt: Arguments) {
     println(s"[info] length: $length (0b${padding(length, 32)})")
     val raw = bits ++ padding(checksum, 32) ++ padding(length, 32)
     println(s"""[info] raw: ${raw.grouped(8).mkString(" ")}""")
-    println(s"""[info] raw: ${raw.grouped(4).toList.map(BigInt(_, 2).toString(16)).mkString.grouped(16).mkString(" ")}""")
+    println(
+      s"""[info] raw: ${raw.grouped(4).toList.map(BigInt(_, 2).toString(16)).mkString.grouped(16).mkString(" ")}""")
     println(s"[info] bytes: ${raw.grouped(8).toArray.map(BigInt(_, 2).toByte).mkString(" ")}")
     require(raw.size % 32 == 0)
     raw.grouped(8).toArray.reverse.map(BigInt(_, 2).toByte)
   }
+  // scalastyle:on magic.number
 }
 
-object Main extends App {
+object Driver {
   val parser = new OptionParser[Arguments]("ScanChainConfig") {
     help("help").text("prints this usage text")
 
@@ -80,13 +100,13 @@ object Main extends App {
     opt[File]('o', "output-dir")
       .action( (x, c) => c.copy(scanChainDir = Some(x)) )
       .text("Output directory for scan chain binaries")
-    arg[File]("scan.yaml")
+    arg[File]("scan.json")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
-      .text("A YAML description of the scan chain")
+      .text("A JSON description of the scan chain")
   }
 
-  parser.parse(args, Arguments()) match {
+  def main(args: Array[String]): Unit = parser.parse(args, Arguments()) match {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils
@@ -104,8 +124,7 @@ object Main extends App {
         }
       }
 
-      if (opt.verbose)
-        println(util.serialize(chains, "[info] "))
+      if (opt.verbose) { println(util.serialize(chains, "[info] ")) }
 
       chains.foreach{ case (name, c) => util.toBinary(c) }
 

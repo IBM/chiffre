@@ -16,7 +16,7 @@ CFLAGS := $(CFLAGS) \
 	-nostdlib \
 	-nostartfiles \
 	-I$(abs_top_srcdir) \
-	-I$(RISCVTOOLS) \
+	-I$(ROCKETCHIP_DIR)/riscv-tools \
 
 all: $(tests_p)
 

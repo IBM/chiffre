@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,27 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package chiffre
+package chiffre.inject
+
+import chiffre.{InjectorInfo, ChiffreInjector}
 
 import chisel3._
-import chisel3.core.BaseModule
 
-class ScanIo extends Bundle {
-  val clk = Input(Bool())
-  val en = Input(Bool())
-  val in = Input(Bool())
-  val out = Output(Bool())
+case object NoInjectorInfo extends InjectorInfo {
+  val fields = Seq.empty
 }
 
-trait HasScanState { this: BaseModule =>
-  val info: InjectorInfo
-}
-
-case class FaultyComponent(name: String, injector: InjectorInfo) {
-  def serialize(indent: String): String =
-    s"""|${indent}- $name:
-        |${injector.serialize(indent + "  ")}"""
-      .stripMargin
-
-  def toBits(): String = injector.toBits()
+class IdentityInjector(bitWidth: Int, val scanId: String) extends Injector(bitWidth: Int) with ChiffreInjector {
+  val info = NoInjectorInfo
+  io.out := io.in
+  io.scan.out := io.scan.in
 }

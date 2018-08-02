@@ -1,4 +1,4 @@
-// Copyright 2017 IBM
+// Copyright 2018 IBM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,27 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package chiffre
+package chiffreTests
 
-import chisel3._
-import chisel3.core.BaseModule
+import chiffre.ScanField
 
-class ScanIo extends Bundle {
-  val clk = Input(Bool())
-  val en = Input(Bool())
-  val in = Input(Bool())
-  val out = Output(Bool())
-}
-
-trait HasScanState { this: BaseModule =>
-  val info: InjectorInfo
-}
-
-case class FaultyComponent(name: String, injector: InjectorInfo) {
-  def serialize(indent: String): String =
-    s"""|${indent}- $name:
-        |${injector.serialize(indent + "  ")}"""
-      .stripMargin
-
-  def toBits(): String = injector.toBits()
+object ChiffreSpecUtils {
+  def backToInt(f: ScanField): Int = Integer.parseInt(f.toBits, 2)
 }

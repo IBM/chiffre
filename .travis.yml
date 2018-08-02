@@ -1,0 +1,26 @@
+language: scala
+sudo: false
+
+cache:
+  directories:
+    $HOME/.ivy2
+
+git:
+  depth: 10
+
+env:
+  global:
+    INSTALL_DIR=$TRAVIS_BUILD_DIR/install
+    VERILATOR_ROOT=$INSTALL_DIR
+    PATH=$PATH:$VERILATOR_ROOT/bin:$TRAVIS_BUILD_DIR/utils/bin
+    SBT_ARGS="-Dsbt.log.noformat=true"
+
+stages:
+  - test
+
+jobs:
+  include:
+    - stage: test
+      script: sbt $SBT_ARGS test
+    - stage: test
+      script: sbt $SBT_ARGS clean assembly publishLocal
