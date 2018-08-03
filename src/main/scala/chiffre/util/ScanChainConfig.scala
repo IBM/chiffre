@@ -110,23 +110,35 @@ object Driver {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils
-      val chains = JsonProtocol.deserialize(opt.scanChainFileName)
+      try {
+        val chains = JsonProtocol.deserialize(opt.scanChainFileName)
 
-      if (opt.scanChainDir.nonEmpty) {
-        val dir = opt.scanChainDir.get
-        if (!dir.exists) dir.mkdir()
-        chains.foreach { case (name, c) =>
-          val w = new FileOutputStream(new File(dir, s"${name}.bin"))
-          val bytes = util.toBinary(c)
-          println(bytes)
-          bytes.foreach(w.write(_))
-          w.close()
+        chains.foreach{ case (id, components) => components.foreach{ case FaultyComponent(name, info) => {
+          info.fields.foreach(f => if (!f.isBound) throw new ScanChainException(s"Unbound field: ${name}:${info.getClass.getSimpleName}.${f.name}"))
+        }}}
+
+        if (opt.scanChainDir.nonEmpty) {
+          val dir = opt.scanChainDir.get
+          if (!dir.exists) dir.mkdir()
+          chains.foreach { case (name, c) =>
+            val w = new FileOutputStream(new File(dir, s"${name}.bin"))
+            val bytes = util.toBinary(c)
+            println(bytes)
+            bytes.foreach(w.write(_))
+            w.close()
+          }
         }
+
+        if (opt.verbose) { println(util.serialize(chains, "[info] ")) }
+
+        chains.foreach{ case (name, c) => util.toBinary(c) }
+      } catch {
+        case org.json4s.MappingException(_, cause) => cause match {
+          case e: java.lang.reflect.InvocationTargetException => throw e.getCause()
+          case e => throw e
+        }
+        case e: Exception => throw e
       }
-
-      if (opt.verbose) { println(util.serialize(chains, "[info] ")) }
-
-      chains.foreach{ case (name, c) => util.toBinary(c) }
 
     case None =>
   }

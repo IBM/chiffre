@@ -13,9 +13,12 @@
 // limitations under the License.
 package chiffre
 
-trait InjectorInfo extends HasWidth {
-  /* All configurable fields for this specific injector */
-  val fields: Seq[ScanField]
+abstract class InjectorInfo(val fields: Seq[ScanField], values: Option[Seq[BigInt]] = None) extends HasWidth {
+  values.foreach(v => {
+    if (v.size != 2)
+      throw new ScanFieldException(s"${getClass.getSimpleName}: Wrong number of values (found ${v.size}; required ${fields.size})")
+    fields zip v map { case (f, vx) => f.bind(vx) }
+  })
 
   /* The width of this injector's scan chain configuration */
   lazy val width: Int = fields.foldLeft(0)( (l, r) => l + r.width )

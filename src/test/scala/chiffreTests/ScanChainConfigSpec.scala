@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.FaultyComponent
+import chiffre.{FaultyComponent, ScanFieldException}
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{StuckAtInjectorInfo, LfsrInjectorInfo, CycleInjectorInfo}
 import chiffre.util.{Driver, ScanChainException}
@@ -25,21 +25,46 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
 
   val test_dir = s"test_run_dir/${this.getClass.getSimpleName}"
 
-  val scanChain: ScanChain = Map(
-    "id-0" -> Seq(
-      FaultyComponent("Top.Top.x", StuckAtInjectorInfo(5)),
-      FaultyComponent("Top.Top.y", LfsrInjectorInfo(4, 32)),
-      FaultyComponent("Top.Top.z", CycleInjectorInfo(3, 8))
-    )
-  )
-
   def writeScanChainToFile(scanChain: ScanChain, fileName: String): Unit = {
     val dir = new File(test_dir)
     if (!dir.exists()) { dir.mkdirs() }
-    val file = new File(s"$test_dir/scan-chain.json")
+    val file = new File(fileName)
     val w = new FileWriter(file)
     w.write(JsonProtocol.serialize(scanChain))
     w.close()
+  }
+
+  it should "error if all scan chain fields are unbound" in {
+    val scanFile = s"$test_dir/scan-chain-0.json"
+    writeScanChainToFile(Map("id-0" -> Seq(FaultyComponent("Top.Top.x", StuckAtInjectorInfo(5)))), scanFile)
+    a [ScanChainException] should be thrownBy (Driver.main(Array(scanFile)))
+  }
+
+  it should "error if any scan chain fields are unbound" in {
+    val scanFile = s"$test_dir/scan-chain-0.json"
+    val dir = new File(test_dir)
+    if (!dir.exists()) { dir.mkdirs() }
+    val w = new FileWriter(new File(scanFile))
+    w.write("""|{
+               |  "id-2":[
+               |    {
+               |      "name":"Top.Top.x",
+               |      "injector":{
+               |        "class":"chiffre.inject.StuckAtInjectorInfo",
+               |        "bitWidth":5,
+               |        "fieldValues":[31]
+               |      }
+               |    }
+               |  ]
+               |}""".stripMargin)
+    w.close()
+    a [ScanFieldException] should be thrownBy (Driver.main(Array(scanFile)))
+  }
+
+  it should "work if all scan chain fields are bound" in {
+    val scanFile = s"$test_dir/scan-chain-2.json"
+    writeScanChainToFile(Map("id-2" -> Seq(FaultyComponent("Top.Top.x", StuckAtInjectorInfo(5, Some(Seq(31, 23)))))), scanFile)
+    Driver.main(Array(scanFile))
   }
 
   it should "properly compute the Fletcher checksum" in (pending)
