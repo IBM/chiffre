@@ -14,6 +14,7 @@
 package chiffre.passes
 
 import chiffre.inject.Injector
+import chiffre.util.removeZeroWidth
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.{PassException, ToWorkingIR}
@@ -124,16 +125,11 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
           var scanOut: String = ""
           compMap(m.name) map { case (comp, id, gen)  =>
             val t = passes.wiring.WiringUtils.getType(c, m.name, comp.name)
-            t match {
-              case _: GroundType =>
-              case _ => throw new FaultInstrumentationException(
-                "[todo] Only GroundType components are instrumentable")
-            }
-            val width = getWidth(t)
-            val numBits = width match { case IntWidth(x) => x.toInt }
-            val tx = UIntType(width)
+            val width = bitWidth(t)
+            if (width == 0)
+              throw new FaultInstrumentationException("Cannot instrument zero-width signals")
 
-            val args = Array[AnyRef](new java.lang.Integer(numBits), id)
+            val args = Array[AnyRef](new java.lang.Integer(width.toInt), id)
             val dutName = gen.getName
             val dut = () => gen.getConstructors()(0)
               .newInstance(args: _*)
@@ -159,19 +155,21 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                 ComponentName(s"$defi.io.scan.$s",
                               ModuleName(m.name, CircuitName(c.main))) )
 
+            val faulty = DefWire(NoInfo, rename, t)
+            val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"$defi.io.out")) match {
+              case Block(stmts: Seq[Statement]) =>
+                stmts :+ Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
+            }
             val x = mods(m.name)
             mods(m.name) = x.copy(
-              defines = DefInstance(NoInfo, defi, subcir.main) +:
-                x.defines :+ DefWire(NoInfo, rename, t),
+              defines = DefInstance(NoInfo, defi, subcir.main) +: x.defines :+ faulty,
               connects = x.connects ++ Seq(
                 Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
                 Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
-                Connect(NoInfo, toExp(s"$defi.io.in"), castRhs(tx, comp.expr)),
-                Connect(NoInfo,toExp(rename),castRhs(t,toExp(s"$defi.io.out"))),
                 IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
                 IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
                 IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
-              ),
+              ) ++ data,
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
