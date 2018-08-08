@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffre.scan
 
-import chiffre.InjectorInfo
+import chiffre.{InjectorInfo, ScanField}
 
 import org.json4s._
 import org.json4s.native.JsonMethods.parse
@@ -21,19 +21,77 @@ import org.json4s.native.Serialization
 import org.json4s.native.Serialization.{read, write, writePretty}
 
 object JsonProtocol {
-  private def getTags(s: ScanChain): List[Class[_]] = {
-    /* Collect all classes that may exist in the scan chain. I'm using
-     * map/reduce as flatMap is throwing a type error. */
-    s.map { case (k, v) => v.map(fc =>
-             fc.injector.getClass +: fc.injector.fields.map(_.getClass)).foldLeft(List[Class[_]]())(_++_) }
-      .reduce(_++_)
-      .toList.distinct
-  }
+  val classId: String = "class"
+
+  private val baseFormat = DefaultFormats
+    .preservingEmptyValues
+    .withTypeHintFieldName(classId)
+
+  /* Collect all classes in a scan chain  */
+  private def getClasses(scanChain: ScanChain): List[Class[_]] = scanChain
+    .map { case (k, v) => v.map(fc =>
+            fc.injector.getClass +: fc.injector.fields.map(_.getClass)).foldLeft(List[Class[_]]())(_++_) }
+    .reduce(_++_)
+    .toList.distinct
+
+  /* Collect all classes in some JSON */
+  private def getClasses(json: JValue, classId: String = classId): List[Class[_]] =
+    (for { JString(name) <- json \\ classId } yield name)
+      .distinct
+      .map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
+
+  class ScanFieldSerializer(formats: Formats) extends CustomSerializer[ScanField](
+    format => {
+      implicit val f = formats
+
+      def des: PartialFunction[JValue, ScanField] = { case obj: JValue =>
+        val value = (obj  \ "value").extract[Option[BigInt]]
+        obj.extract[ScanField].bind(value)
+      }
+
+      def ser: PartialFunction[Any, JValue] = { case field: ScanField =>
+        Extraction.decompose(field) match {
+          case JObject(list) => JObject(
+            list :+ ("value", Extraction.decompose(field.value) match {
+                       case JNothing => JNull
+                       case other => other
+                     } ))
+        }
+      }
+
+      (des, ser)
+    })
+
+  class InjectorInfoSerializer(formats: Formats) extends CustomSerializer[InjectorInfo](
+    format => {
+      implicit val f = formats + new ScanFieldSerializer(formats)
+
+      def des: PartialFunction[JValue, InjectorInfo] = { case obj: JObject =>
+        val extracted = obj.extract[InjectorInfo]
+        val fields = (obj \ "fields").extract[Seq[JObject]]
+
+        val scanFields = fields.map(_.extract[ScanField])
+
+        extracted.fields.zip(scanFields).map{ case (a, b) => a.bind(b.value) }
+
+        extracted
+      }
+
+      def ser: PartialFunction[Any, JValue] = { case info: InjectorInfo =>
+        Extraction.decompose(info) match {
+          case JObject(list) => JObject(
+            list :+ ("fields", Extraction.decompose(info.fields)))
+        }
+      }
+
+      (des, ser)
+    })
 
   def serialize(s: ScanChain): String = {
-    implicit val formats = Serialization
-      .formats(FullTypeHints(getTags(s)))
-      .withTypeHintFieldName("class")
+    implicit val formats = {
+      implicit val f = baseFormat + FullTypeHints(getClasses(s))
+      f + new InjectorInfoSerializer(f)
+    }
     writePretty(s)
   }
 
@@ -41,19 +99,10 @@ object JsonProtocol {
     def throwError() =
       throw new Exception("Bad scan chain input for deserialization")
 
-    val classNames: List[String] = parse(in) match {
-      case JObject(sc) => sc.flatMap {
-        case (_, JArray(components)) => components.map {
-          case JObject(_ :: ("injector", JObject(("class", JString(c)) :: _)) :: _) => c
-          case _ => throwError() }
-        case _ => throwError() }
-      case _ => throwError() }
-    val classes: List[Class[_ <: InjectorInfo]] = classNames
-      .map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
-
-    implicit val formats = Serialization
-      .formats(FullTypeHints(classes))
-      .withTypeHintFieldName("class")
+    implicit val formats = {
+      implicit val f = baseFormat + FullTypeHints(getClasses(parse(in)))
+      f + new InjectorInfoSerializer(f)
+    }
     read[ScanChain](in)
   }
 }

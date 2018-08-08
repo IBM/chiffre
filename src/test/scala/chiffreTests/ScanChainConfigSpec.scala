@@ -50,7 +50,7 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
     val args = Array(scanFile)
     (the [ScanChainException] thrownBy {
       Driver.main(args)
-    }).msg should startWith ("Cannot bind ScanField")
+    }).msg should startWith ("Unable to bind")
   }
 
   it should "work if all command line arguments are specified" in {

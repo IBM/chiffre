@@ -31,4 +31,19 @@ trait InjectorInfo extends HasWidth {
   def toBits(): String = fields.map(_.toBits()).mkString
 
   def isBound(): Boolean = fields.map(_.isBound).reduceOption(_ && _).getOrElse(true)
+
+  def unbind(): InjectorInfo = {
+    fields.map(_.unbind)
+    this
+  }
+
+  override def equals(that: Any): Boolean = that match {
+    case that: InjectorInfo => width == that.width &&
+        fields.zip(that.fields).foldLeft(true){ case (x, (l, r)) => x & (l == r) }
+    case _ => false
+  }
+
+  override def hashCode = width
+
+  def canEqual(that: Any) = that.isInstanceOf[this.type]
 }
