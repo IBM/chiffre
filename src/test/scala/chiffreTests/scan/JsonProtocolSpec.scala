@@ -37,7 +37,7 @@ class JsonProtocolSpec extends ChiselFlatSpec {
   it should "round trip from ScanChain -> JSON -> ScanChain" in {
 
     info("binding one of the values")
-    scanChain("id-0")(0).injector.fields(0).bind(BigInt(1))
+    scanChain("id-0")(0).injector.fields(0).bind(1)
     val json: String = JsonProtocol.serialize(scanChain)
     println(json)
     val roundTrip: ScanChain = JsonProtocol.deserialize(json)
