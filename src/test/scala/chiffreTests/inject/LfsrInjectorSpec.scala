@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffreTests.inject
 
-import chiffre.ScanFieldException
+import chiffre.ScanFieldBindingException
 import chiffre.inject.{Seed, Difficulty, LfsrInjectorInfo, LfsrInjector, LfsrInjectorN}
 import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.{ChiselFlatSpec, Driver}
@@ -55,8 +55,10 @@ class LfsrInjectSpec extends ChiselFlatSpec {
 
   it should "throw a ScanFieldException if the probability is nonsensical" in {
     val x = Difficulty(width = 24)
-    a [ScanFieldException] should be thrownBy (x.bind(-0.1))
-    a [ScanFieldException] should be thrownBy (x.bind(1.1))
+    info("when binding -0.1")
+    a [ScanFieldBindingException] should be thrownBy (x.bind(-0.1))
+    info("when binding 1.1")
+    a [ScanFieldBindingException] should be thrownBy (x.bind(1.1))
   }
 
   it should "map 1.0 probability should to maxValue" in {
