@@ -71,12 +71,19 @@ trait ScanField extends HasName with HasWidth {
   def isBound(): Boolean = value.nonEmpty
 
   override def equals(that: Any): Boolean = that match {
-    case that: ScanField => width == that.width && value == that.value
+    case that: ScanField => (this canEqual that) && (width == that.width) && (value == that.value)
   }
 
-  override def hashCode = width
+  override def hashCode = value.hashCode
 
-  def canEqual(that: Any) = that.isInstanceOf[this.type]
+  /** Test that some object could possibly be equal to this
+    *
+    * '''You should not have to implement this. A `case class` that mixes
+    * in [[ScanField]] will have this defined automatically!'''
+    *
+    * @param that something else
+    */
+  def canEqual(that: Any): Boolean
 }
 
 trait ProbabilityBind { this: ScanField =>
