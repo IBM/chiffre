@@ -32,11 +32,22 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
       FaultyComponent("Top.Top.z", CycleInjectorInfo(3, 8))
     )
   )
+  val scanFile = s"$test_dir/scan-chain.json"
+  writeScanChainToFile(scanChain, scanFile)
+
+  val scanChainBound: ScanChain = Map(
+    "id-0" -> Seq(
+      FaultyComponent("Top.Top.x", StuckAtInjectorInfo(5))
+    )
+  )
+  scanChainBound("id-0")(0).injector.fields(0).bind(1)
+  val scanBoundFile = s"$test_dir/scan-chain-partially-bound.json"
+  writeScanChainToFile(scanChainBound, scanBoundFile)
 
   def writeScanChainToFile(scanChain: ScanChain, fileName: String): Unit = {
     val dir = new File(test_dir)
     if (!dir.exists()) { dir.mkdirs() }
-    val file = new File(s"$test_dir/scan-chain.json")
+    val file = new File(fileName)
     val w = new FileWriter(file)
     w.write(JsonProtocol.serialize(scanChain))
     w.close()
@@ -45,17 +56,13 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
   behavior of "ScanChainConfig"
 
   it should "error if missing command line arguments" in {
-    val scanFile = s"$test_dir/scan-chain.json"
-    writeScanChainToFile(scanChain, scanFile)
     val args = Array(scanFile)
     (the [ScanChainException] thrownBy {
       Driver.main(args)
-    }).msg should startWith ("Cannot bind ScanField")
+    }).msg should startWith ("Unable to bind")
   }
 
   it should "work if all command line arguments are specified" in {
-    val scanFile = s"$test_dir/scan-chain.json"
-    writeScanChainToFile(scanChain, scanFile)
     val args = Array("--probability", "0.5",
                      "--mask", "3",
                      "--stuck-at", "2",
@@ -63,6 +70,28 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
                      "--cycle-inject", "4",
                      scanFile)
     Driver.main(args)
+  }
+
+  it should "not override existing fields" in {
+    val dir = s"$test_dir/override"
+    val args = Array("--mask", "3",
+                     "--stuck-at", "2",
+                     "--output-dir", dir,
+                     scanBoundFile)
+    Driver.main(args)
+
+    val roundTrip: ScanChain = JsonProtocol.deserialize(new File(s"$dir/bound.json"))
+    roundTrip("id-0")(0).injector.fields(0).value should be (Some(1))
+  }
+
+  it should "throw an exception if binding a bound field with --error-if-bound" in {
+    val args = Array("--mask", "3",
+                     "--stuck-at", "2",
+                     "--error-if-bound",
+                     scanBoundFile)
+    (the [ScanChainException] thrownBy {
+      Driver.main(args)
+    }).msg should startWith ("Tried to rebind already bound ScanField")
   }
 
   it should "properly compute the Fletcher checksum" in (pending)

@@ -26,10 +26,7 @@ class DummyController extends Module with ChiffreController {
 
 class DummyInjector extends Injector(1) with ChiffreInjector {
   val scanId = "dummy"
-  val info = new InjectorInfo {
-    val name = "dummyInfo"
-    val fields = Seq.empty
-  }
+  val info = EmptyInjectorInfo
 }
 
 class DummyInjectee extends Module with ChiffreInjectee {

@@ -25,7 +25,7 @@ trait HasName {
 }
 
 /** A configurable field of the scan chain */
-trait ScanField extends HasName with HasWidth {
+trait ScanField extends HasName with HasWidth with Equals {
   var value: Option[BigInt] = None
 
   val name: String = this.getClass.getSimpleName
@@ -46,7 +46,8 @@ trait ScanField extends HasName with HasWidth {
     if (in.nonEmpty) {
       bind(in.get)
     } else {
-      throw new ScanFieldUnboundException("Cannot bind to empty value")
+      value = None
+      this
     }
 
   lazy val maxValue = BigInt(2).pow(width) - 1
@@ -68,6 +69,12 @@ trait ScanField extends HasName with HasWidth {
   }
 
   def isBound(): Boolean = value.nonEmpty
+
+  override def equals(that: Any): Boolean = that match {
+    case that: ScanField => (this canEqual that) && (width == that.width) && (value == that.value)
+  }
+
+  override def hashCode = value.hashCode
 }
 
 trait ProbabilityBind { this: ScanField =>

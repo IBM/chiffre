@@ -13,47 +13,127 @@
 // limitations under the License.
 package chiffre.scan
 
-import chiffre.InjectorInfo
+import chiffre.{InjectorInfo, ScanField}
 
 import org.json4s._
 import org.json4s.native.JsonMethods.parse
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.{read, write, writePretty}
 
+/** An exception related to JSON serialization
+  * @param msg an exception message
+  */
+case class JsonSerializationException(msg: String) extends Exception(msg)
+
 object JsonProtocol {
-  private def getTags(s: ScanChain): List[Class[_]] = {
-    /* Collect all classes that may exist in the scan chain. I'm using
-     * map/reduce as flatMap is throwing a type error. */
-    s.map { case (k, v) => v.map(fc =>
-             fc.injector.getClass +: fc.injector.fields.map(_.getClass)).foldLeft(List[Class[_]]())(_++_) }
-      .reduce(_++_)
-      .toList.distinct
+  /** The name/key to use for the name--value pair holding a Scala class
+    *
+    * @note this matches what FIRRTL does
+    */
+  val classId: String = "class"
+
+  // A base serialization format
+  private val baseFormat = DefaultFormats
+    .preservingEmptyValues
+    .withTypeHintFieldName(classId)
+
+  // Find all the classes in a ScanChain
+  private def getClasses(scanChain: ScanChain): List[Class[_]] = scanChain
+    .flatMap { case (k, v) => v.map(fc =>
+            fc.injector.getClass +: fc.injector.fields.map(_.getClass)).foldLeft(List[Class[_]]())(_++_) }
+    .toList
+    .distinct
+
+  // Find all the classes in some JSON
+  private def getClasses(json: JValue): List[Class[_]] =
+    // For comprehensions to extract all fields matching classId
+    (for { JString(name) <- json \\ classId } yield name)
+      .distinct
+      .map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
+
+  /** A JSON serializer/deserializer of a [[ScanField]]
+    *
+    * @param formats a base [[org.json4s.Formats]] to implicitly pass to
+    * extractors
+    */
+  class ScanFieldSerializer(formats: Formats) extends CustomSerializer[ScanField](
+    format => {
+      implicit val f = formats
+
+      def des: PartialFunction[JValue, ScanField] = { case obj: JValue =>
+        val value = (obj  \ "value").extract[Option[BigInt]]
+        obj.extract[ScanField].bind(value)
+      }
+
+      def ser: PartialFunction[Any, JValue] = { case field: ScanField =>
+        Extraction.decompose(field) match {
+          case JObject(list) =>
+            JObject(list :+ ("value",
+                             Extraction.decompose(field.value) match {
+                               case JNothing => JNull
+                               case other => other
+                             } ))
+          case json =>
+            throw new JsonSerializationException(s"Unexpected JSON $json when trying to serialize a ScanField")
+        }
+      }
+
+      (des, ser)
+    })
+
+  /** A JSON serializer/deserializer of an [[InjectorInfo]]
+    *
+    * @param formats a base [[org.json4s.Formats]] to implicitly pass to
+    * extractors
+    */
+  class InjectorInfoSerializer(formats: Formats) extends CustomSerializer[InjectorInfo](
+    format => {
+      implicit val f = formats + new ScanFieldSerializer(formats)
+
+      def des: PartialFunction[JValue, InjectorInfo] = { case obj: JObject =>
+        val extracted = obj.extract[InjectorInfo]
+        val scanFields = (obj \ "fields").extract[Seq[JObject]].map(_.extract[ScanField])
+        extracted.fields.zip(scanFields).map{ case (a, b) => a.bind(b.value) }
+        extracted
+      }
+
+      def ser: PartialFunction[Any, JValue] = { case info: InjectorInfo =>
+        Extraction.decompose(info) match {
+          case JObject(list) => JObject(list :+ ("fields", Extraction.decompose(info.fields)))
+          case json =>
+            throw new JsonSerializationException(s"Unexpected JSON $json when trying to serialize an InjectorInfo")
+        }
+      }
+
+      (des, ser)
+    })
+
+  /** Convert a [[ScanChain]] to JSON
+    *
+    * @param scan a scan chain
+    * @return some JSON
+    */
+  def serialize(scan: ScanChain): String = {
+    implicit val formats = {
+      implicit val f = baseFormat + FullTypeHints(getClasses(scan))
+      f + new InjectorInfoSerializer(f)
+    }
+    writePretty(scan)
   }
 
-  def serialize(s: ScanChain): String = {
-    implicit val formats = Serialization
-      .formats(FullTypeHints(getTags(s)))
-      .withTypeHintFieldName("class")
-    writePretty(s)
-  }
-
-  def deserialize(in: JsonInput): ScanChain = {
+  /** Convert [[org.json4s.JsonInput]] to a [[ScanChain]]
+    *
+    * @param json some JSON
+    * @return a scan chain
+    */
+  def deserialize(json: JsonInput): ScanChain = {
     def throwError() =
       throw new Exception("Bad scan chain input for deserialization")
 
-    val classNames: List[String] = parse(in) match {
-      case JObject(sc) => sc.flatMap {
-        case (_, JArray(components)) => components.map {
-          case JObject(_ :: ("injector", JObject(("class", JString(c)) :: _)) :: _) => c
-          case _ => throwError() }
-        case _ => throwError() }
-      case _ => throwError() }
-    val classes: List[Class[_ <: InjectorInfo]] = classNames
-      .map(Class.forName(_).asInstanceOf[Class[_ <: InjectorInfo]])
-
-    implicit val formats = Serialization
-      .formats(FullTypeHints(classes))
-      .withTypeHintFieldName("class")
-    read[ScanChain](in)
+    implicit val formats = {
+      implicit val f = baseFormat + FullTypeHints(getClasses(parse(json)))
+      f + new InjectorInfoSerializer(f)
+    }
+    read[ScanChain](json)
   }
 }

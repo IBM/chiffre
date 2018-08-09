@@ -17,8 +17,7 @@ import chiffre.{ScanField, FaultyComponent, InjectorInfo, ScanFieldUnboundExcept
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{Seed, Difficulty, Mask, StuckAt, Cycle, CycleInject}
 import scopt.OptionParser
-import java.io.File
-import java.io.FileOutputStream
+import java.io.{File, FileOutputStream, PrintWriter}
 import scala.io.Source
 
 case class ScanChainException(msg: String) extends Exception(msg)
@@ -32,7 +31,8 @@ case class Arguments(
   mask: Option[BigInt] = None,
   stuckAt: Option[BigInt] = None,
   cycle: Option[BigInt] = None,
-  cycleInject: Option[BigInt] = None
+  cycleInject: Option[BigInt] = None,
+  errorIfBound: Boolean = false
 )
 
 class ScanChainUtils(implicit opt: Arguments) {
@@ -48,15 +48,17 @@ class ScanChainUtils(implicit opt: Arguments) {
 
   private def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField = try {
     f match {
-        case x: ScanField if x.value.nonEmpty => throw new ScanChainException(
-          s"Tried to rebind already bound ScanField $f (name: $name)")
-        case x: Seed        => x.bind(BigInt(x.width, rand))
-        case x: Difficulty  => x.bind(opt.probability)
-        case x: Mask        => x.bind(opt.mask)
-        case x: StuckAt     => x.bind(opt.stuckAt)
-        case x: Cycle       => x.bind(opt.cycle)
-        case x: CycleInject => x.bind(opt.cycleInject)
-        case _              => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
+      case x: ScanField if x.value.nonEmpty =>
+        if (opt.errorIfBound) {
+          throw new ScanChainException(s"Tried to rebind already bound ScanField $f (name: $name)") }
+        x
+      case x: Seed        => x.bind(BigInt(x.width, rand))
+      case x: Difficulty  => x.bind(opt.probability)
+      case x: Mask        => x.bind(opt.mask)
+      case x: StuckAt     => x.bind(opt.stuckAt)
+      case x: Cycle       => x.bind(opt.cycle)
+      case x: CycleInject => x.bind(opt.cycleInject)
+      case _              => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
     }
   } catch {
     case _: ScanFieldUnboundException =>
@@ -82,17 +84,8 @@ class ScanChainUtils(implicit opt: Arguments) {
   def bitString(c: Seq[FaultyComponent]): String = c.map(_.toBits()).mkString
 
   /* Pretty-print all scan chains */
-  def serialize(chains: ScanChain, indent: String = ""): String = {
-    chains
-      .map{case(name, c) =>
-        s"""|${indent}${name}:
-            |${indent}  length: ${getLength(c)}b
-            |${indent}  chain:
-            |${c.map(_.serialize(indent + "  ")).mkString("\n")}
-            |${indent}  raw: ${bitString(c)}"""
-          .stripMargin}
-      .mkString("\n")
-  }
+  def serialize(chains: ScanChain, indent: String = ""): String = JsonProtocol.serialize(chains)
+    .split("\n").map(indent + _).mkString("\n")
 
   // scalastyle:off magic.number
   def fletcher(x: String, length: Int, n: Int = 32): BigInt = {
@@ -169,6 +162,9 @@ object Driver {
     opt[String]("cycle-inject")
       .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
       .text("Bit string to inject at <cycle>")
+    opt[Unit]("error-if-bound")
+      .action( (_, c) => c.copy(errorIfBound = true) )
+      .text("Error if a command line argument would bind an already bound value")
     arg[File]("scan.json")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
@@ -181,11 +177,17 @@ object Driver {
       val util = new ScanChainUtils
       val chains = JsonProtocol.deserialize(opt.scanChainFileName)
 
+      println(util.serialize(chains, "[info] "))
+
       util.bind(chains)
 
       if (opt.scanChainDir.nonEmpty) {
         val dir = opt.scanChainDir.get
         if (!dir.exists) dir.mkdir()
+        val boundJson = JsonProtocol.serialize(chains)
+        val w = new PrintWriter(new File(dir, s"bound.json"))
+        w.write(boundJson)
+        w.close()
         chains.foreach { case (name, c) =>
           val w = new FileOutputStream(new File(dir, s"${name}.bin"))
           val bytes = util.toBinary(c)

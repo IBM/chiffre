@@ -16,22 +16,22 @@ package chiffreTests
 import chiffre.{InjectorInfo, ScanField}
 import chisel3.iotesters.ChiselFlatSpec
 
+case object EmptyInjectorInfo extends InjectorInfo {
+  val name = "DummyInjectorInfo"
+  val fields = Seq.empty
+}
+
 class InjectorInfoSpec extends ChiselFlatSpec {
 
   case class DummyField(width: Int) extends ScanField
-  class DummyInjectorInfo(val fields: Seq[ScanField]) extends InjectorInfo {
+  case class DummyInjectorInfo(fields: Seq[ScanField]) extends InjectorInfo {
     val name = "dummy"
   }
 
   behavior of "The InjectoInfo trait"
 
   it should "have width 0 and report bound if without fields" in {
-    class EmptyInjectorInfo extends InjectorInfo {
-      val name = "DummyInjectorInfo"
-      val fields = Seq.empty
-    }
-
-    val x = new EmptyInjectorInfo()
+    val x = EmptyInjectorInfo
     x.width should be (0)
     x.isBound should be (true)
   }
