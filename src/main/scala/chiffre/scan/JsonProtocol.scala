@@ -39,11 +39,10 @@ object JsonProtocol {
 
   // Find all the classes in a ScanChain
   private def getClasses(scanChain: ScanChain): List[Class[_]] = scanChain
-    .map { case (k, v) => v.map(fc =>
+    .flatMap { case (k, v) => v.map(fc =>
             fc.injector.getClass +: fc.injector.fields.map(_.getClass)).foldLeft(List[Class[_]]())(_++_) }
-    .reduce(_++_)
-    .distinct
     .toList
+    .distinct
 
   // Find all the classes in some JSON
   private def getClasses(json: JValue): List[Class[_]] =
