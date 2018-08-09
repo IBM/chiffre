@@ -25,7 +25,7 @@ trait HasName {
 }
 
 /** A configurable field of the scan chain */
-trait ScanField extends HasName with HasWidth {
+trait ScanField extends HasName with HasWidth with Equals {
   var value: Option[BigInt] = None
 
   val name: String = this.getClass.getSimpleName
@@ -75,15 +75,6 @@ trait ScanField extends HasName with HasWidth {
   }
 
   override def hashCode = value.hashCode
-
-  /** Test that some object could possibly be equal to this
-    *
-    * '''You should not have to implement this. A `case class` that mixes
-    * in [[ScanField]] will have this defined automatically!'''
-    *
-    * @param that something else
-    */
-  def canEqual(that: Any): Boolean
 }
 
 trait ProbabilityBind { this: ScanField =>

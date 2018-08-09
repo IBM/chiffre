@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffre
 
-trait InjectorInfo extends HasWidth {
+trait InjectorInfo extends HasWidth with Equals {
   /* All configurable fields for this specific injector */
   val fields: Seq[ScanField]
 
@@ -44,6 +44,4 @@ trait InjectorInfo extends HasWidth {
   }
 
   override def hashCode = width
-
-  def canEqual(that: Any) = that.isInstanceOf[this.type]
 }
