@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.{ScanField, ScanFieldException}
+import chiffre.{ScanField, ScanFieldException, ScanFieldBindingException}
 import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.ChiselFlatSpec
 
@@ -29,8 +29,8 @@ class ScanFieldSpec extends ChiselFlatSpec {
 
   it should "throw a ScanFieldException if value is outside domain inferred from the width" in {
     val x = DummyField(8)
-    a [ScanFieldException] should be thrownBy (x.bind(-1))
-    a [ScanFieldException] should be thrownBy (x.bind(256))
+    a [ScanFieldBindingException] should be thrownBy (x.bind(-1))
+    a [ScanFieldBindingException] should be thrownBy (x.bind(256))
   }
 
   it should "serialize bits correctly" in {
@@ -47,7 +47,7 @@ class ScanFieldSpec extends ChiselFlatSpec {
       a.bind(x.map(BigInt(_)))
       b.bind(y.map(BigInt(_)))
       val op = if (pass) "==" else "!="
-      info(s"""${x.getOrElse("unbound")} $op ${y.getOrElse("unbound")}""")
+      info(s"""${x.getOrElse("u")} $op ${y.getOrElse("u")}""")
       a == b should be (pass)
     }
   }
@@ -60,7 +60,7 @@ class ScanFieldSpec extends ChiselFlatSpec {
   equalityChecks("compute equality correctly for fields of the same type and width",
                  (DummyField(2), DummyField(2)), sameTypeSameWidth)
 
-  val allFalse = sameTypeSameWidth.map{ case (k, v) => (k -> false) }
+  val allFalse = sameTypeSameWidth.mapValues(_ => false)
   equalityChecks("compute equality correctly for fields of the same type and different width",
                  (DummyField(2), DummyField(3)), allFalse)
 

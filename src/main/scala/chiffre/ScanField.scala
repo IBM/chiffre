@@ -15,6 +15,7 @@ package chiffre
 
 case class ScanFieldException(msg: String) extends Exception(msg)
 case class ScanFieldUnboundException(msg: String) extends Exception(msg)
+case class ScanFieldBindingException(msg: String) extends Exception(msg)
 
 trait HasWidth {
   val width: Int
@@ -35,7 +36,7 @@ trait ScanField extends HasName with HasWidth with Equals {
 
   def bind(in: BigInt): ScanField = {
     if (in < 0 || in > maxValue) {
-      throw new ScanFieldException(
+      throw new ScanFieldBindingException(
         s"Cannot bind ScanField '$name' to value $in must be on domain [0, $maxValue], but would be ${in}")
     }
     value = Some(in)
