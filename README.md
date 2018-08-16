@@ -61,7 +61,7 @@ cd $ROCKETCHIP_DIR
 git clone https://github.com/ibm/chiffre chiffre
 git apply chiffre/patches/rocket-chip-fault-cycle.patch
 cd emulator
-make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS="le-chiffre/chiffre chiffre"
+make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS="chiffre/le-chiffre chiffre"
 ```
 
 You can then run the test provided by [chiffre/tests](tests) (instructions provided in that directory).

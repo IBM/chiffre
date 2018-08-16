@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.{ScanField, ScanFieldException}
+import chiffre.{ScanField, ScanFieldException, ScanFieldBindingException}
 import chiffreTests.ChiffreSpecUtils.backToInt
 import chisel3.iotesters.ChiselFlatSpec
 
@@ -29,8 +29,8 @@ class ScanFieldSpec extends ChiselFlatSpec {
 
   it should "throw a ScanFieldException if value is outside domain inferred from the width" in {
     val x = DummyField(8)
-    a [ScanFieldException] should be thrownBy (x.bind(-1))
-    a [ScanFieldException] should be thrownBy (x.bind(256))
+    a [ScanFieldBindingException] should be thrownBy (x.bind(-1))
+    a [ScanFieldBindingException] should be thrownBy (x.bind(256))
   }
 
   it should "serialize bits correctly" in {
@@ -38,4 +38,33 @@ class ScanFieldSpec extends ChiselFlatSpec {
 
     (0 until x.maxValue.toInt + 1).foreach( v => v should be (backToInt(x.bind(v))))
   }
+
+  def equalityChecks( testName: String,
+                      fields: (ScanField, ScanField),
+                      tests: Map[(Option[Int], Option[Int]), Boolean]): Unit = it should s"$testName" in {
+    val (a, b) = fields
+    tests.map{ case ((x, y), pass) =>
+      a.bind(x.map(BigInt(_)))
+      b.bind(y.map(BigInt(_)))
+      val op = if (pass) "==" else "!="
+      info(s"""${x.getOrElse("u")} $op ${y.getOrElse("u")}""")
+      a == b should be (pass)
+    }
+  }
+
+  val sameTypeSameWidth = Map( (None, None)       -> true,
+                               (Some(1), None)    -> false,
+                               (Some(1), Some(1)) -> true,
+                               (Some(2), Some(1)) -> false,
+                               (None, Some(1))    -> false )
+  equalityChecks("compute equality correctly for fields of the same type and width",
+                 (DummyField(2), DummyField(2)), sameTypeSameWidth)
+
+  val allFalse = sameTypeSameWidth.mapValues(_ => false)
+  equalityChecks("compute equality correctly for fields of the same type and different width",
+                 (DummyField(2), DummyField(3)), allFalse)
+
+  case class FooField(width: Int) extends ScanField
+  equalityChecks("compute equality correctly for fields of different types and the same widths",
+                 (DummyField(2), FooField(2)), allFalse)
 }

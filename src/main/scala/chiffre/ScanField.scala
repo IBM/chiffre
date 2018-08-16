@@ -15,6 +15,7 @@ package chiffre
 
 case class ScanFieldException(msg: String) extends Exception(msg)
 case class ScanFieldUnboundException(msg: String) extends Exception(msg)
+case class ScanFieldBindingException(msg: String) extends Exception(msg)
 
 trait HasWidth {
   val width: Int
@@ -25,7 +26,7 @@ trait HasName {
 }
 
 /** A configurable field of the scan chain */
-trait ScanField extends HasName with HasWidth {
+trait ScanField extends HasName with HasWidth with Equals {
   var value: Option[BigInt] = None
 
   val name: String = this.getClass.getSimpleName
@@ -35,7 +36,7 @@ trait ScanField extends HasName with HasWidth {
 
   def bind(in: BigInt): ScanField = {
     if (in < 0 || in > maxValue) {
-      throw new ScanFieldException(
+      throw new ScanFieldBindingException(
         s"Cannot bind ScanField '$name' to value $in must be on domain [0, $maxValue], but would be ${in}")
     }
     value = Some(in)
@@ -46,7 +47,8 @@ trait ScanField extends HasName with HasWidth {
     if (in.nonEmpty) {
       bind(in.get)
     } else {
-      throw new ScanFieldUnboundException("Cannot bind to empty value")
+      value = None
+      this
     }
 
   lazy val maxValue = BigInt(2).pow(width) - 1
@@ -68,6 +70,12 @@ trait ScanField extends HasName with HasWidth {
   }
 
   def isBound(): Boolean = value.nonEmpty
+
+  override def equals(that: Any): Boolean = that match {
+    case that: ScanField => (this canEqual that) && (width == that.width) && (value == that.value)
+  }
+
+  override def hashCode = value.hashCode
 }
 
 trait ProbabilityBind { this: ScanField =>

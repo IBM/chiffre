@@ -21,8 +21,9 @@ import chiffre.{InjectorInfo, ScanField, HasWidth}
 case class Cycle(width: Int) extends ScanField
 case class CycleInject(width: Int) extends ScanField
 
-case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int, fieldValues: Option[Seq[BigInt]] = None)
-    extends InjectorInfo(Seq(Cycle(cycleWidth), CycleInject(bitWidth)), fieldValues)
+case class CycleInjectorInfo(bitWidth: Int, cycleWidth: Int) extends InjectorInfo {
+  val fields = Seq(Cycle(cycleWidth), CycleInject(bitWidth))
+}
 
 class CycleInjector(bitWidth: Int, val cycleWidth: Int) extends Injector(bitWidth) {
   val cycleTarget = Reg(UInt(cycleWidth.W))

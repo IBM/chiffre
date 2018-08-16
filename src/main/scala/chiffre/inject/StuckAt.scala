@@ -22,8 +22,9 @@ import chiffre.{ScanField, InjectorInfo}
 case class Mask(width: Int) extends ScanField
 case class StuckAt(width: Int) extends ScanField
 
-case class StuckAtInjectorInfo(bitWidth: Int, fieldValues: Option[Seq[BigInt]] = None)
-    extends InjectorInfo(Seq(Mask(bitWidth), StuckAt(bitWidth)), fieldValues)
+case class StuckAtInjectorInfo(bitWidth: Int) extends InjectorInfo {
+  val fields = Seq(Mask(bitWidth), StuckAt(bitWidth))
+}
 
 class StuckAtInjector(val bitWidth: Int) extends Injector(bitWidth) {
   val mask = Reg(UInt(bitWidth.W))

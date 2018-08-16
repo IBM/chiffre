@@ -21,8 +21,9 @@ import chiffre.{ScanField, InjectorInfo, ProbabilityBind}
 case class Seed(width: Int) extends ScanField
 case class Difficulty(width: Int) extends ScanField with ProbabilityBind
 
-case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int, fieldValues: Option[Seq[BigInt]] = None)
-    extends InjectorInfo(Seq.fill(bitWidth)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth))).flatten, fieldValues)
+case class LfsrInjectorInfo(bitWidth: Int, lfsrWidth: Int) extends InjectorInfo {
+  val fields = Seq.fill(bitWidth)(Seq(Seed(lfsrWidth), Difficulty(lfsrWidth))).flatten
+}
 
 sealed class LfsrInjector(val lfsrWidth: Int) extends Injector(1) {
   val difficulty = RegInit(0.U(lfsrWidth.W))

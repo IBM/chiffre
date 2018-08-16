@@ -13,26 +13,40 @@
 // limitations under the License.
 package chiffreTests.scan
 
-import chiffre.FaultyComponent
+import chiffre.{FaultyComponent, InjectorInfo}
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{StuckAtInjectorInfo, LfsrInjectorInfo, CycleInjectorInfo}
 import chisel3.iotesters.ChiselFlatSpec
+
+case class TestInfo(hello: Option[Int] = None) extends InjectorInfo {
+  val fields = Seq.empty
+}
 
 class JsonProtocolSpec extends ChiselFlatSpec {
 
   val scanChain: ScanChain = Map(
     "id-0" -> Seq(
-      FaultyComponent("Top.Top.x", StuckAtInjectorInfo(5)),
-      FaultyComponent("Top.Top.y", LfsrInjectorInfo(4, 32)),
-      FaultyComponent("Top.Top.z", CycleInjectorInfo(3, 8))
+      FaultyComponent("Top.Top.a", StuckAtInjectorInfo(5)),
+      FaultyComponent("Top.Top.b", LfsrInjectorInfo(4, 32)),
+      FaultyComponent("Top.Top.c", CycleInjectorInfo(3, 8))
     )
   )
 
   behavior of "JsonProtocol"
 
   it should "round trip from ScanChain -> JSON -> ScanChain" in {
+
+    info("binding one of the values")
+    scanChain("id-0")(0).injector.fields(0).bind(1)
     val json: String = JsonProtocol.serialize(scanChain)
+    println(json)
     val roundTrip: ScanChain = JsonProtocol.deserialize(json)
+
+    info("round trip matches with bound value")
     roundTrip should be (scanChain)
+
+    roundTrip("id-0")(0).injector.unbind
+    info("unbinding the bound value causes it to not match")
+    roundTrip should not be (scanChain)
   }
 }

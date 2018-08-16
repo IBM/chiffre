@@ -17,7 +17,9 @@ import chiffre.{InjectorInfo, ChiffreInjector}
 
 import chisel3._
 
-case object NoInjectorInfo extends InjectorInfo(Seq.empty)
+case object NoInjectorInfo extends InjectorInfo {
+  val fields = Seq.empty
+}
 
 class IdentityInjector(bitWidth: Int, val scanId: String) extends Injector(bitWidth: Int) with ChiffreInjector {
   val info = NoInjectorInfo

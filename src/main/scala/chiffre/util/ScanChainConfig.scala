@@ -17,8 +17,7 @@ import chiffre.{ScanField, FaultyComponent, InjectorInfo, ScanFieldUnboundExcept
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{Seed, Difficulty, Mask, StuckAt, Cycle, CycleInject}
 import scopt.OptionParser
-import java.io.File
-import java.io.FileOutputStream
+import java.io.{File, FileOutputStream, PrintWriter}
 import scala.io.Source
 
 case class ScanChainException(msg: String) extends Exception(msg)
@@ -26,31 +25,67 @@ case class ScanChainException(msg: String) extends Exception(msg)
 case class Arguments(
   scanChainFileName: File = new File("."),
   scanChainDir: Option[File] = None,
-  verbose: Boolean = false
+  verbose: Boolean = false,
+  probability: Option[Double] = None,
+  seed: Option[Int] = None,
+  mask: Option[BigInt] = None,
+  stuckAt: Option[BigInt] = None,
+  cycle: Option[BigInt] = None,
+  cycleInject: Option[BigInt] = None,
+  errorIfBound: Boolean = false
 )
 
 class ScanChainUtils(implicit opt: Arguments) {
+  val rand =
+    if (!opt.seed.isEmpty) { new scala.util.Random(opt.seed.get) }
+    else                   { new scala.util.Random()             }
+
   def getLength(s: Seq[FaultyComponent]): Int = s
     .foldLeft(0) { case (lenC, f) => lenC + f.injector.width }
 
   def getComponentNames(s: Seq[FaultyComponent]): Seq[String] = s
     .map(_.name)
 
+  private def bind(f: ScanField, name: String)(implicit opt: Arguments): ScanField = try {
+    f match {
+      case x: ScanField if x.value.nonEmpty =>
+        if (opt.errorIfBound) {
+          throw new ScanChainException(s"Tried to rebind already bound ScanField $f (name: $name)") }
+        x
+      case x: Seed        => x.bind(BigInt(x.width, rand))
+      case x: Difficulty  => x.bind(opt.probability)
+      case x: Mask        => x.bind(opt.mask)
+      case x: StuckAt     => x.bind(opt.stuckAt)
+      case x: Cycle       => x.bind(opt.cycle)
+      case x: CycleInject => x.bind(opt.cycleInject)
+      case _              => throw new ScanChainException(s"Unimplemented binding for ScanField $f")
+    }
+  } catch {
+    case _: ScanFieldUnboundException =>
+      throw new ScanChainException(s"Cannot bind ScanField $f based on available arguments")
+  }
+
+  private def bind(i: InjectorInfo, name: String)(implicit opt: Arguments): Unit =
+    i.fields.foreach(bind(_, name))
+
+  private def bind(f: FaultyComponent)(implicit opt: Arguments): Unit = {
+    bind(f.injector, f.name)
+    val bound = f.injector.fields.foldLeft(true)( (notEmpty, x) => { notEmpty & x.value.nonEmpty } )
+    if (!bound) {
+      throw new ScanChainException(s"Unable to bind ${f.injector} based on command line options") }
+  }
+
+  /* Consume command line options to populate scan chain fields */
+  def bind(s: ScanChain)(implicit opt: Arguments): Unit = s.foreach {
+    case (name, chain) => { chain.foreach { bind(_) } }
+  }
+
   /* Convert a Scan Chain description to a bit string */
   def bitString(c: Seq[FaultyComponent]): String = c.map(_.toBits()).mkString
 
   /* Pretty-print all scan chains */
-  def serialize(chains: ScanChain, indent: String = ""): String = {
-    chains
-      .map{case(name, c) =>
-        s"""|${indent}${name}:
-            |${indent}  length: ${getLength(c)}b
-            |${indent}  chain:
-            |${c.map(_.serialize(indent + "  ")).mkString("\n")}
-            |${indent}  raw: ${bitString(c)}"""
-          .stripMargin}
-      .mkString("\n")
-  }
+  def serialize(chains: ScanChain, indent: String = ""): String = JsonProtocol.serialize(chains)
+    .split("\n").map(indent + _).mkString("\n")
 
   // scalastyle:off magic.number
   def fletcher(x: String, length: Int, n: Int = 32): BigInt = {
@@ -100,6 +135,36 @@ object Driver {
     opt[File]('o', "output-dir")
       .action( (x, c) => c.copy(scanChainDir = Some(x)) )
       .text("Output directory for scan chain binaries")
+    opt[Double]('p', "probability")
+      .action( (x, c) => c.copy(probability = Some(x)) )
+      .validate( x =>
+        if (x >= 0 && x <= 1) { success                                                 }
+        else                  { failure("probability <value> must be on domain [0, 1]") } )
+      .text("Default bit flip probability")
+    opt[Int]('s', "seed")
+      .action( (x, c) => c.copy(seed = Some(x)) )
+      .validate( x =>
+        if (x >= 0) { success                                                        }
+        else        { failure("the seed <value> must be greater than or equal to 0") } )
+      .text("Random number seed")
+    opt[String]("mask")
+      .action( (x, c) => c.copy(mask = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
+      .text("A fault mask (bits that will be given a 'stuck-at' value")
+    opt[String]("stuck-at")
+      .action( (x, c) => c.copy(stuckAt = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
+      .text("Stuck at bits to apply")
+    opt[BigInt]("cycle")
+      .action( (x, c) => c.copy(cycle = Some(x) ))
+      .validate( x =>
+        if (x >= 0) { success                                                         }
+        else        { failure("the cycle <value> must be greater than or equal to 0") } )
+      .text("The cycle to inject faults")
+    opt[String]("cycle-inject")
+      .action( (x, c) => c.copy(cycleInject = Some(BigInt(x, 16))) ) // scalastyle:ignore magic.number
+      .text("Bit string to inject at <cycle>")
+    opt[Unit]("error-if-bound")
+      .action( (_, c) => c.copy(errorIfBound = true) )
+      .text("Error if a command line argument would bind an already bound value")
     arg[File]("scan.json")
       .required()
       .action( (x, c) => c.copy(scanChainFileName = x) )
@@ -110,35 +175,31 @@ object Driver {
     case Some(x) =>
       implicit val opt = x
       val util = new ScanChainUtils
-      try {
-        val chains = JsonProtocol.deserialize(opt.scanChainFileName)
+      val chains = JsonProtocol.deserialize(opt.scanChainFileName)
 
-        chains.foreach{ case (id, components) => components.foreach{ case FaultyComponent(name, info) => {
-          info.fields.foreach(f => if (!f.isBound) throw new ScanChainException(s"Unbound field: ${name}:${info.getClass.getSimpleName}.${f.name}"))
-        }}}
+      println(util.serialize(chains, "[info] "))
 
-        if (opt.scanChainDir.nonEmpty) {
-          val dir = opt.scanChainDir.get
-          if (!dir.exists) dir.mkdir()
-          chains.foreach { case (name, c) =>
-            val w = new FileOutputStream(new File(dir, s"${name}.bin"))
-            val bytes = util.toBinary(c)
-            println(bytes)
-            bytes.foreach(w.write(_))
-            w.close()
-          }
+      util.bind(chains)
+
+      if (opt.scanChainDir.nonEmpty) {
+        val dir = opt.scanChainDir.get
+        if (!dir.exists) dir.mkdir()
+        val boundJson = JsonProtocol.serialize(chains)
+        val w = new PrintWriter(new File(dir, s"bound.json"))
+        w.write(boundJson)
+        w.close()
+        chains.foreach { case (name, c) =>
+          val w = new FileOutputStream(new File(dir, s"${name}.bin"))
+          val bytes = util.toBinary(c)
+          println(bytes)
+          bytes.foreach(w.write(_))
+          w.close()
         }
-
-        if (opt.verbose) { println(util.serialize(chains, "[info] ")) }
-
-        chains.foreach{ case (name, c) => util.toBinary(c) }
-      } catch {
-        case org.json4s.MappingException(_, cause) => cause match {
-          case e: java.lang.reflect.InvocationTargetException => throw e.getCause()
-          case e => throw e
-        }
-        case e: Exception => throw e
       }
+
+      if (opt.verbose) { println(util.serialize(chains, "[info] ")) }
+
+      chains.foreach{ case (name, c) => util.toBinary(c) }
 
     case None =>
   }
