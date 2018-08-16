@@ -64,6 +64,43 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
   }
 
+  it should "add two injectors if two registers are annotated" in {
+    val components = Seq(ComponentName("x", ModuleName("top", CircuitName("top"))),
+                         ComponentName("y", ModuleName("top", CircuitName("top"))))
+    val compMap = Map("top" -> components.map((_, "dummyId", classOf[IdentityInjector])).toSeq)
+    val f = new FaultInstrumentation(compMap)
+
+    val input = """|circuit top:
+                   |  module top:
+                   |    input clock: Clock
+                   |    input in: UInt<1>[2]
+                   |    output out: UInt<1>[2]
+                   |    reg x: UInt<1>, Clock
+                   |    reg y: UInt<1>, Clock
+                   |    x <= in[0]
+                   |    y <= in[1]
+                   |    out[0] <= x
+                   |    out[1] <= y
+                   |""".stripMargin
+
+    val circuit = Parser.parse(input)
+    val state = CircuitState(circuit, MidForm, Seq.empty, None)
+
+    val output = f.execute(state)
+
+    info("The injector module was added to the circuit")
+    output.circuit.modules.map(_.name).filter(_.contains("IdentityInjector")).size should be (2)
+
+    val iGraph = new InstanceGraph(output.circuit)
+    val insts = iGraph.getChildrenInstances("top").map(_.copy(info=NoInfo, tpe=UnknownType))
+
+    info("The injectors were instantiated")
+    insts.map(_ match {
+      case WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType) => true
+      case _ => false
+    }).size should be (2)
+  }
+
   it should "inject faults into a ground type" in {
     val component = ComponentName("x", ModuleName("top", CircuitName("top")))
     val compMap = Map(component.module.name -> Seq((component, "dummyId", classOf[IdentityInjector])))
