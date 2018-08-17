@@ -82,11 +82,8 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                annotations = AnnotationSeq(inAnno ++ ax))
   }
 
-  private def inlineCompile(gen: () => chisel3.Module, comp: Option[ComponentName] = None, ns: Option[Namespace] = None): CircuitState = {
-    def genName(name: String, comp: Option[ComponentName] = None, n: Option[Namespace]): String = {
-      val nn = s"""${name}${comp.map(c => s"_${c.name}_${c.module.name}").getOrElse("")}"""
-      n.map(_.newName(nn)).getOrElse(nn)
-    }
+  private def inlineCompile(gen: () => chisel3.Module, ns: Option[Namespace] = None): CircuitState = {
+    def genName(name: String, n: Option[Namespace] = None): String = n.map(_.newName(name)).getOrElse(name)
 
     val options = new ExecutionOptionsManager("Fault Instrumentation Inline") with HasFirrtlOptions
         with chisel3.HasChiselExecutionOptions {
@@ -103,11 +100,11 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
       .circuit
       .mapModule(
         _ match {
-          case m: Module    => m.copy(name = genName(m.name, comp, ns))
-          case m: ExtModule => m.copy(name = genName(m.name, comp, ns))
+          case m: Module    => m.copy(name = genName(m.name, ns))
+          case m: ExtModule => m.copy(name = genName(m.name, ns))
         })
     CircuitState(
-      circuit = midFirrtl.mapString(n => s"""${n}${comp.map(c => s"_${c.name}_${c.module.name}").getOrElse("")}"""),
+      circuit = midFirrtl,
       form = MidForm,
       annotations = AnnotationSeq(inlineAnnos))
   }
@@ -144,7 +141,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
               (cmods(comp).circuit, Seq.empty, Seq.empty)
             } else {
               try {
-                cmods(comp) = inlineCompile(dut, Some(comp), Some(circuitNamespace))
+                cmods(comp) = inlineCompile(dut, Some(circuitNamespace))
               } catch {
                 case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
                   s"Did not find '(Int, String)' constructor for injector '${gen.getName}' (Did you forget to specify it?)")
@@ -153,34 +150,35 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                if (cmods(comp).annotations.isEmpty) { Seq.empty }
                else { cmods(comp).annotations.toSeq   } )
             }
-            val defi = moduleNamespace.newName(subcir.main)
+            val injector = defms.last // the top-level module (the injector) should be the last module of the subcircuit
+            val inst = DefInstance(NoInfo, moduleNamespace.newName(s"${comp.name}_injector"), injector.name)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
 
             val Seq(scanEn, scanClk, scanIn, scanOut) =
               Seq("en", "clk", "in", "out").map( s =>
-                ComponentName(s"$defi.io.scan.$s",
+                ComponentName(s"${inst.name}.io.scan.$s",
                               ModuleName(m.name, CircuitName(c.main))) )
 
             val faulty = DefWire(NoInfo, rename, t)
-            val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"$defi.io.out")) match {
+            val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"${inst.name}.io.out")) match {
               case Block(stmts: Seq[Statement]) =>
-                stmts :+ Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
+                stmts :+ Connect(NoInfo, toExp(s"${inst.name}.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
             }
             val x = mods(m.name)
             mods(m.name) = x.copy(
-              defines = DefInstance(NoInfo, defi, defi) +: x.defines :+ faulty,
+              defines = inst +: x.defines :+ faulty,
               connects = x.connects ++ Seq(
-                Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
-                Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
-                IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
-                IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
-                IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
+                Connect(NoInfo, toExp(s"${inst.name}.clock"), toExp(s"clock")),
+                Connect(NoInfo, toExp(s"${inst.name}.reset"), toExp(s"reset")),
+                IsInvalid(NoInfo, toExp(s"${inst.name}.io.scan.en")),
+                IsInvalid(NoInfo, toExp(s"${inst.name}.io.scan.clk")),
+                IsInvalid(NoInfo, toExp(s"${inst.name}.io.scan.in"))
               ) ++ data,
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
                 SinkAnnotation(scanClk, "scan_clk"),
-                ScanChainInjectorAnnotation(comp, id, defi),
+                ScanChainInjectorAnnotation(comp, id, injector.name),
                 ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
                 ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),
