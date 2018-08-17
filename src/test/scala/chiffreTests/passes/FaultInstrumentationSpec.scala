@@ -55,13 +55,13 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val output = f.execute(state)
 
     info("The injector module was added to the circuit")
-    output.circuit.modules.map(_.name) should contain ("IdentityInjector")
+    output.circuit.modules.map(_.name) should contain ("IdentityInjector_x_top")
 
     val iGraph = new InstanceGraph(output.circuit)
     val insts = iGraph.getChildrenInstances("top").map(_.copy(info=NoInfo, tpe=UnknownType))
 
     info("The injector was instantiated")
-    insts should contain (WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType))
+    insts should contain (WDefInstance(NoInfo, "IdentityInjector_x_top", "IdentityInjector_x_top", UnknownType))
   }
 
   it should "add two injectors if two registers are annotated" in {
@@ -95,8 +95,9 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val insts = iGraph.getChildrenInstances("top").map(_.copy(info=NoInfo, tpe=UnknownType))
 
     info("The injectors were instantiated")
-    insts.map(_ match {
-      case WDefInstance(NoInfo, "IdentityInjector", "IdentityInjector", UnknownType) => true
+    insts.foreach(println(_))
+    insts.filter(_ match {
+      case WDefInstance(NoInfo, name, module, UnknownType) if name.contains("IdentityInjector") && module.contains("IdentityInjector") => true
       case _ => false
     }).size should be (2)
   }
@@ -121,7 +122,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val connections = new ArrayBuffer[Connect]()
     f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
     connections.map(_.serialize) should contain ("out <= x_fault")
-    connections.map(_.serialize) should contain ("x_fault <= asUInt(bits(IdentityInjector.io.out, 3, 0))")
+    connections.map(_.serialize) should contain ("x_fault <= asUInt(bits(IdentityInjector_x_top.io.out, 3, 0))")
     connections.last.expr.serialize should be ("asUInt(x)")
   }
 
@@ -145,7 +146,7 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val connections = new ArrayBuffer[Connect]()
     f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
     for (i <- 0 to 3) {
-      connections.map(_.serialize) should contain (s"x_fault[$i] <= asUInt(bits(IdentityInjector.io.out, $i, $i))")
+      connections.map(_.serialize) should contain (s"x_fault[$i] <= asUInt(bits(IdentityInjector_x_top.io.out, $i, $i))")
     }
     connections.last.expr.serialize should be ("cat(cat(asUInt(x[3]), asUInt(x[2])), cat(asUInt(x[1]), asUInt(x[0])))")
   }
@@ -170,8 +171,8 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val state = CircuitState(circuit, MidForm, Seq.empty, None)
     val connections = new ArrayBuffer[Connect]()
     f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
-    connections.map(_.serialize) should contain ("x_fault.b <= asUInt(bits(IdentityInjector.io.out, 4, 0))")
-    connections.map(_.serialize) should contain ("x_fault.a <= asUInt(bits(IdentityInjector.io.out, 7, 5))")
+    connections.map(_.serialize) should contain ("x_fault.b <= asUInt(bits(IdentityInjector_x_top.io.out, 4, 0))")
+    connections.map(_.serialize) should contain ("x_fault.a <= asUInt(bits(IdentityInjector_x_top.io.out, 7, 5))")
     connections.last.expr.serialize should be ("cat(asUInt(x.a), asUInt(x.b))")
   }
 
@@ -196,9 +197,9 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val state = CircuitState(circuit, MidForm, Seq.empty, None)
     val connections = new ArrayBuffer[Connect]()
     f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
-    connections.map(_.serialize) should contain ("x_fault.a.a1 <= asUInt(bits(IdentityInjector.io.out, 6, 6))")
-    connections.map(_.serialize) should contain ("x_fault.a.a2 <= asUInt(bits(IdentityInjector.io.out, 5, 3))")
-    connections.map(_.serialize) should contain ("x_fault.b <= asUInt(bits(IdentityInjector.io.out, 2, 0))")
+    connections.map(_.serialize) should contain ("x_fault.a.a1 <= asUInt(bits(IdentityInjector_x_top.io.out, 6, 6))")
+    connections.map(_.serialize) should contain ("x_fault.a.a2 <= asUInt(bits(IdentityInjector_x_top.io.out, 5, 3))")
+    connections.map(_.serialize) should contain ("x_fault.b <= asUInt(bits(IdentityInjector_x_top.io.out, 2, 0))")
     connections.last.expr.serialize should be ("cat(cat(asUInt(x.a.a1), asUInt(x.a.a2)), asUInt(x.b))")
   }
 
@@ -222,14 +223,14 @@ class FaultInstrumentationSpec extends ChiselFlatSpec {
     val state = CircuitState(circuit, MidForm, Seq.empty, None)
     val connections = new ArrayBuffer[Connect]()
     f.execute(state).circuit.modules.filter(_.name == component.module.name).foreach(_.mapStmt(collect(connections)))
-    connections.map(_.serialize) should contain ("x_fault[0].b <= asUInt(bits(IdentityInjector.io.out, 2, 0))")
-    connections.map(_.serialize) should contain ("x_fault[0].a.a2[0] <= asUInt(bits(IdentityInjector.io.out, 3, 3))")
-    connections.map(_.serialize) should contain ("x_fault[0].a.a2[1] <= asUInt(bits(IdentityInjector.io.out, 4, 4))")
-    connections.map(_.serialize) should contain ("x_fault[0].a.a1 <= asUInt(bits(IdentityInjector.io.out, 5, 5))")
-    connections.map(_.serialize) should contain ("x_fault[1].b <= asUInt(bits(IdentityInjector.io.out, 8, 6))")
-    connections.map(_.serialize) should contain ("x_fault[1].a.a2[0] <= asUInt(bits(IdentityInjector.io.out, 9, 9))")
-    connections.map(_.serialize) should contain ("x_fault[1].a.a2[1] <= asUInt(bits(IdentityInjector.io.out, 10, 10))")
-    connections.map(_.serialize) should contain ("x_fault[1].a.a1 <= asUInt(bits(IdentityInjector.io.out, 11, 11))")
+    connections.map(_.serialize) should contain ("x_fault[0].b <= asUInt(bits(IdentityInjector_x_top.io.out, 2, 0))")
+    connections.map(_.serialize) should contain ("x_fault[0].a.a2[0] <= asUInt(bits(IdentityInjector_x_top.io.out, 3, 3))")
+    connections.map(_.serialize) should contain ("x_fault[0].a.a2[1] <= asUInt(bits(IdentityInjector_x_top.io.out, 4, 4))")
+    connections.map(_.serialize) should contain ("x_fault[0].a.a1 <= asUInt(bits(IdentityInjector_x_top.io.out, 5, 5))")
+    connections.map(_.serialize) should contain ("x_fault[1].b <= asUInt(bits(IdentityInjector_x_top.io.out, 8, 6))")
+    connections.map(_.serialize) should contain ("x_fault[1].a.a2[0] <= asUInt(bits(IdentityInjector_x_top.io.out, 9, 9))")
+    connections.map(_.serialize) should contain ("x_fault[1].a.a2[1] <= asUInt(bits(IdentityInjector_x_top.io.out, 10, 10))")
+    connections.map(_.serialize) should contain ("x_fault[1].a.a1 <= asUInt(bits(IdentityInjector_x_top.io.out, 11, 11))")
     connections.last.expr.serialize should be ("cat(cat(cat(asUInt(x[1].a.a1), cat(asUInt(x[1].a.a2[1]), asUInt(x[1].a.a2[0]))), asUInt(x[1].b)), cat(cat(asUInt(x[0].a.a1), cat(asUInt(x[0].a.a2[1]), asUInt(x[0].a.a2[0]))), asUInt(x[0].b)))")
   }
 

@@ -82,10 +82,10 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
                annotations = AnnotationSeq(inAnno ++ ax))
   }
 
-  private def inlineCompile(gen: () => chisel3.Module, ns: Option[Namespace] = None): CircuitState = {
-    def genName(name: String, n: Option[Namespace]): String = n match {
-      case Some(nn) => nn.newName(name)
-      case _ => name
+  private def inlineCompile(gen: () => chisel3.Module, comp: Option[ComponentName] = None, ns: Option[Namespace] = None): CircuitState = {
+    def genName(name: String, comp: Option[ComponentName] = None, n: Option[Namespace]): String = {
+      val nn = s"""${name}${comp.map(c => s"_${c.name}_${c.module.name}").getOrElse("")}"""
+      n.map(_.newName(nn)).getOrElse(nn)
     }
 
     val options = new ExecutionOptionsManager("Fault Instrumentation Inline") with HasFirrtlOptions
@@ -103,11 +103,11 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
       .circuit
       .mapModule(
         _ match {
-          case m: Module    => m.copy(name = genName(m.name, ns))
-          case m: ExtModule => m.copy(name = genName(m.name, ns))
+          case m: Module    => m.copy(name = genName(m.name, comp, ns))
+          case m: ExtModule => m.copy(name = genName(m.name, comp, ns))
         })
     CircuitState(
-      circuit = midFirrtl,
+      circuit = midFirrtl.mapString(n => s"""${n}${comp.map(c => s"_${c.name}_${c.module.name}").getOrElse("")}"""),
       form = MidForm,
       annotations = AnnotationSeq(inlineAnnos))
   }
@@ -144,7 +144,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
               (cmods(comp).circuit, Seq.empty, Seq.empty)
             } else {
               try {
-                cmods(comp) = inlineCompile(dut, Some(circuitNamespace))
+                cmods(comp) = inlineCompile(dut, Some(comp), Some(circuitNamespace))
               } catch {
                 case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
                   s"Did not find '(Int, String)' constructor for injector '${gen.getName}' (Did you forget to specify it?)")
