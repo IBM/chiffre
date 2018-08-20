@@ -36,6 +36,7 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
   }
 
   it should "emit scan chain annotations and a scan chain description" in {
+    val dir = targetDir + "/" + "ScanChainTransformSpecSingle" + "/"
     val input =
       """|circuit Top:
          |  module Top:
@@ -57,7 +58,7 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
       ScanChainAnnotation(ComponentName("injector.io.scan.in", m), "slave", "in", "foo", Some(ComponentName("x", m))),
       ScanChainAnnotation(ComponentName("injector.io.scan.out", m), "slave", "out", "foo", Some(ComponentName("x", m))),
       ScanChainDescriptionAnnotation(ComponentName("x", m), "foo", NoInjectorInfo),
-      TargetDirAnnotation(targetDir)
+      TargetDirAnnotation(dir)
     )
     val state = CircuitState(circuit, MidForm, annos, None)
 
@@ -77,13 +78,11 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
 
     info("expected annotations emitted")
     annosExpected.foreach( output.annotations.toSet should contain (_) )
-    fileShouldExist(targetDir + "/scan-chain.json")
+    fileShouldExist(dir + "/scan-chain.json")
   }
 
-  // [todo] This currently fails due to (I think) the same reasons as #16.
-  // There is no way to disambiguate the injectors for registers x and y.
-  // This may be fixed by #18.
-  ignore should "emit annotations to wire a scan chain for multiply instantiated injectors" in {
+  it should "emit annotations to wire a scan chain for multiply instantiated injectors" in {
+    val dir = targetDir + "/" + "ScanChainTransformSpecMultiple" + "/"
     val input =
       """|circuit Top:
          |  module Top:
@@ -108,10 +107,10 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
       ScanChainAnnotation(ComponentName("injector_0.io.scan.out", m), "slave", "out", "foo", Some(ComponentName("x", m))),
       ScanChainDescriptionAnnotation(ComponentName("x", m), "foo", NoInjectorInfo),
       ScanChainInjectorAnnotation(ComponentName("y", m), "foo", "Injector"),
-      ScanChainAnnotation(ComponentName("injector_1.io.scan.in", m), "slave", "in", "foo", Some(ComponentName("x", m))),
-      ScanChainAnnotation(ComponentName("injector_1.io.scan.out", m), "slave", "out", "foo", Some(ComponentName("x", m))),
-      ScanChainDescriptionAnnotation(ComponentName("x", m), "foo", NoInjectorInfo),
-      TargetDirAnnotation(targetDir)
+      ScanChainAnnotation(ComponentName("injector_1.io.scan.in", m), "slave", "in", "foo", Some(ComponentName("y", m))),
+      ScanChainAnnotation(ComponentName("injector_1.io.scan.out", m), "slave", "out", "foo", Some(ComponentName("y", m))),
+      ScanChainDescriptionAnnotation(ComponentName("y", m), "foo", NoInjectorInfo),
+      TargetDirAnnotation(dir)
     )
     val state = CircuitState(circuit, MidForm, annos, None)
 
@@ -135,7 +134,7 @@ class ScanChainTransformSpec extends ChiselFlatSpec {
 
     info("expected annotations emitted")
     annosExpected.foreach(a => output.annotations.toSet should contain (a))
-    fileShouldExist("scan-chain.json")
+    fileShouldExist(dir + "/scan-chain.json")
   }
 
   it should "have the same ordering in the circuit and the JSON output" in (pending)
