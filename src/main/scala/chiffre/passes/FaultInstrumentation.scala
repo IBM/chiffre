@@ -15,6 +15,7 @@ package chiffre.passes
 
 import chiffre.inject.Injector
 import chiffre.util.removeZeroWidth
+import chisel3.experimental.{annotate, ChiselAnnotation}
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.{PassException, ToWorkingIR}
@@ -82,10 +83,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
   }
 
   private def inlineCompile(gen: () => chisel3.Module, ns: Option[Namespace] = None): CircuitState = {
-    def genName(name: String, n: Option[Namespace]): String = n match {
-      case Some(nn) => nn.newName(name)
-      case _ => name
-    }
+    def genName(name: String, n: Option[Namespace] = None): String = n.map(_.newName(name)).getOrElse(name)
 
     val options = new ExecutionOptionsManager("Fault Instrumentation Inline") with HasFirrtlOptions
         with chisel3.HasChiselExecutionOptions {
@@ -113,7 +111,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
 
   private def analyze(c: Circuit): Map[String, Modifications] = {
     val mods = new mutable.HashMap[String, Modifications].withDefaultValue(Modifications())
-    val cmods = new mutable.HashMap[String, CircuitState]()
+    val cmods = new mutable.HashMap[ComponentName, CircuitState]()
     val circuitNamespace = Namespace(c)
 
     c.modules
@@ -130,51 +128,57 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
               throw new FaultInstrumentationException("Cannot instrument zero-width signals")
 
             val args = Array[AnyRef](new java.lang.Integer(width.toInt), id)
-            val dutName = gen.getName
-            val dut = () => gen.getConstructors()(0)
-              .newInstance(args: _*)
-              .asInstanceOf[chisel3.Module]
-            val (subcir, defms, annosx) = if (cmods.contains(dutName)) {
-              (cmods(dutName).circuit, Seq.empty, Seq.empty)
+            val dut = () => {
+              val injector = gen.getConstructors()(0)
+                .newInstance(args: _*)
+                .asInstanceOf[Injector]
+              annotate(new ChiselAnnotation {
+                def toFirrtl: ScanChainDescriptionAnnotation = ScanChainDescriptionAnnotation(comp, id, injector.info)
+              })
+              injector
+            }
+            val (subcir, defms, annosx) = if (cmods.contains(comp)) {
+              (cmods(comp).circuit, Seq.empty, Seq.empty)
             } else {
               try {
-                cmods(dutName) = inlineCompile(dut, Some(circuitNamespace))
+                cmods(comp) = inlineCompile(dut, Some(circuitNamespace))
               } catch {
                 case e: java.lang.IllegalArgumentException => throw new FaultInstrumentationException(
-                  s"Did not find '(Int, String)' constructor for injector '$dutName' (Did you forget to specify it?)")
+                  s"Did not find '(Int, String)' constructor for injector '${gen.getName}' (Did you forget to specify it?)")
               }
-              (cmods(dutName).circuit, cmods(dutName).circuit.modules,
-               if (cmods(dutName).annotations.isEmpty) { Seq.empty }
-               else { cmods(dutName).annotations.toSeq   } )
+              (cmods(comp).circuit, cmods(comp).circuit.modules,
+               if (cmods(comp).annotations.isEmpty) { Seq.empty }
+               else { cmods(comp).annotations.toSeq   } )
             }
-            val defi = moduleNamespace.newName(subcir.main)
+            val injector = defms.last // the top-level module (the injector) should be the last module of the subcircuit
+            val inst = DefInstance(NoInfo, moduleNamespace.newName(s"${comp.name}_injector"), injector.name)
             val rename = moduleNamespace.newName(s"${comp.name}_fault")
 
             val Seq(scanEn, scanClk, scanIn, scanOut) =
               Seq("en", "clk", "in", "out").map( s =>
-                ComponentName(s"$defi.io.scan.$s",
+                ComponentName(s"${inst.name}.io.scan.$s",
                               ModuleName(m.name, CircuitName(c.main))) )
 
             val faulty = DefWire(NoInfo, rename, t)
-            val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"$defi.io.out")) match {
+            val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"${inst.name}.io.out")) match {
               case Block(stmts: Seq[Statement]) =>
-                stmts :+ Connect(NoInfo, toExp(s"$defi.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
+                stmts :+ Connect(NoInfo, toExp(s"${inst.name}.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
             }
             val x = mods(m.name)
             mods(m.name) = x.copy(
-              defines = DefInstance(NoInfo, defi, subcir.main) +: x.defines :+ faulty,
+              defines = inst +: x.defines :+ faulty,
               connects = x.connects ++ Seq(
-                Connect(NoInfo, toExp(s"$defi.clock"), toExp(s"clock")),
-                Connect(NoInfo, toExp(s"$defi.reset"), toExp(s"reset")),
-                IsInvalid(NoInfo, toExp(s"$defi.io.scan.en")),
-                IsInvalid(NoInfo, toExp(s"$defi.io.scan.clk")),
-                IsInvalid(NoInfo, toExp(s"$defi.io.scan.in"))
+                Connect(NoInfo, toExp(s"${inst.name}.clock"), toExp(s"clock")),
+                Connect(NoInfo, toExp(s"${inst.name}.reset"), toExp(s"reset")),
+                IsInvalid(NoInfo, toExp(s"${inst.name}.io.scan.en")),
+                IsInvalid(NoInfo, toExp(s"${inst.name}.io.scan.clk")),
+                IsInvalid(NoInfo, toExp(s"${inst.name}.io.scan.in"))
               ) ++ data,
               modules = x.modules ++ defms,
               annotations = x.annotations ++ annosx ++ Seq(
                 SinkAnnotation(scanEn, "scan_en"),
                 SinkAnnotation(scanClk, "scan_clk"),
-                ScanChainInjectorAnnotation(comp, id, subcir.main),
+                ScanChainInjectorAnnotation(comp, id, injector.name),
                 ScanChainAnnotation(scanIn, "slave", "in", id, Some(comp)),
                 ScanChainAnnotation(scanOut, "slave", "out", id, Some(comp))
               ),

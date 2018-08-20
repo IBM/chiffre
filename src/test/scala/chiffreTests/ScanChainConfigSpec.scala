@@ -13,7 +13,7 @@
 // limitations under the License.
 package chiffreTests
 
-import chiffre.FaultyComponent
+import chiffre.{FaultyComponent, ScanFieldException}
 import chiffre.scan.{ScanChain, JsonProtocol}
 import chiffre.inject.{StuckAtInjectorInfo, LfsrInjectorInfo, CycleInjectorInfo}
 import chiffre.util.{Driver, ScanChainException}
@@ -53,7 +53,11 @@ class ScanChainConfigSpec extends ChiselFlatSpec {
     w.close()
   }
 
-  behavior of "ScanChainConfig"
+  it should "error if all scan chain fields are unbound" in {
+    val scanFile = s"$test_dir/scan-chain-0.json"
+    writeScanChainToFile(Map("id-0" -> Seq(FaultyComponent("Top.Top.x", StuckAtInjectorInfo(5)))), scanFile)
+    a [ScanChainException] should be thrownBy (Driver.main(Array(scanFile)))
+  }
 
   it should "error if missing command line arguments" in {
     val args = Array(scanFile)

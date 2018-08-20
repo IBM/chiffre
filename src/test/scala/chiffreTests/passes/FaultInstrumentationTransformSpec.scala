@@ -25,7 +25,7 @@ class InjectorA(bitWidth: Int, id: String) extends IdentityInjector(bitWidth, id
 class InjectorB(bitWidth: Int, id: String) extends InjectorA(bitWidth, id)
 class InjectorC(bitWidth: Int, id: String) extends InjectorB(bitWidth, id)
 
-class TestInjector(bitWidth: Int, scanId: String) extends IdentityInjector(1, scanId) {
+class TestInjector(bitWidth: Int, scanId: String) extends IdentityInjector(bitWidth, scanId) {
   assert(io.scan.clk =/= io.scan.en)
   io.out := ~io.in
 }
@@ -44,14 +44,18 @@ class TestController(val scanId: String) extends Module with ChiffreController {
 
 class TestInjectee(faulty: Boolean) extends Module with ChiffreInjectee {
   val io = IO(new Bundle{})
-  val x = RegInit(0.U(1.W))
+  val x = RegInit(~0.U(1.W))
+  val y = RegInit(~0.U(2.W))
   val scanId = "id"
 
   if (faulty) {
     isFaulty(x, scanId, classOf[TestInjector])
     assert(x === RegNext(~x), "Faulty register 'x' did not flip")
+    assert(y === RegNext(y), "Non-faulty register 'y' did not hold its value")
   } else {
+    isFaulty(y, scanId, classOf[TestInjector])
     assert(x === RegNext(x), "Non-faulty register 'x' did not hold its value")
+    assert(y === RegNext(~y), "Faulty register 'y' did not flip")
   }
 }
 

@@ -48,12 +48,6 @@ trait ChiffreController extends BaseModule {
 
 trait ChiffreInjector { this: Injector =>
   val scanId: String
-
-  chisel3.experimental.annotate {
-    val x = this
-    new ChiselAnnotation {
-      def toFirrtl: ScanChainDescriptionAnnotation = ScanChainDescriptionAnnotation(x.toNamed, scanId, info)
-    }}
 }
 
 trait ChiffreInjectee extends BaseModule {
