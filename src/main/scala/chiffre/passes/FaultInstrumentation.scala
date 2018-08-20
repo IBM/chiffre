@@ -15,7 +15,7 @@ package chiffre.passes
 
 import chiffre.inject.Injector
 import chiffre.util.removeZeroWidth
-import chisel3.experimental.ChiselAnnotation
+import chisel3.experimental.{annotate, ChiselAnnotation}
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.{PassException, ToWorkingIR}
@@ -131,8 +131,8 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
             val dut = () => {
               val injector = gen.getConstructors()(0)
                 .newInstance(args: _*)
-                .asInstanceOf[chiffre.inject.Injector]
-              chisel3.experimental.annotate(new ChiselAnnotation {
+                .asInstanceOf[Injector]
+              annotate(new ChiselAnnotation {
                 def toFirrtl: ScanChainDescriptionAnnotation = ScanChainDescriptionAnnotation(comp, id, injector.info)
               })
               injector

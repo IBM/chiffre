@@ -42,14 +42,7 @@ class InstrumentationSpec extends ChiselFlatSpec {
     val circuit = Driver.elaborate(() => new DummyController)
     circuit.annotations.map(_.toFirrtl).collect{ case a: ScanChainAnnotation => a }.size should be (1)
   }
-/*
-  behavior of "ChiffreInjector annotation"
 
-  it should "emit an ScanChainDescriptionAnnotation" in {
-    val circuit = Driver.elaborate(() => new DummyInjector)
-    circuit.annotations.map(_.toFirrtl).collect{ case a: ScanChainDescriptionAnnotation => a }.size should be (1)
-  }
-*/
   behavior of "Chiffree Injectee annotation"
 
   it should "emit an annotation" in {
