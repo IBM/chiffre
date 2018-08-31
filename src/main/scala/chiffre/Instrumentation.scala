@@ -15,24 +15,18 @@ package chiffre
 
 import chisel3._
 import chisel3.core.BaseModule
-import chisel3.internal.InstanceId
 import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform}
 import chiffre.passes.{ScanChainAnnotation, FaultInjectionAnnotation,
   ScanChainTransform, FaultInstrumentationTransform}
 import chiffre.inject.Injector
 import chiffre.passes.ScanChainDescriptionAnnotation
 
-trait ChiffreController extends BaseModule {
-  self: BaseModule =>
-
+trait ChiffreController { this: BaseModule =>
   /** Scan Chain Identifier used to differentiate scan chains. This must
     * be a `lazy val`. */
   def scanId: String
 
   private def scanMaster(scan: Data, name: String): Unit = {
-    // if (scanId == null) { // scalastyle:off
-    //   throw new Exception(
-    //     "Chiffre Controller 'scanId' should be a 'lazy val'") }
     chisel3.experimental.annotate(
       new ChiselAnnotation {
         def toFirrtl = ScanChainAnnotation(scan.toNamed, "master", "scan", name, None)
@@ -50,18 +44,19 @@ trait ChiffreInjector { this: Injector =>
   val scanId: String
 }
 
-trait ChiffreInjectee extends BaseModule {
-  self: BaseModule =>
+trait ChiffreInjectee { this: BaseModule =>
 
-  def isFaulty[T <: Injector](component: InstanceId, id: String, gen: Class[_ <: Injector]): Unit = {
-    component match {
-      case c: Data =>
-        chisel3.experimental.annotate(
-          new ChiselAnnotation with RunFirrtlTransform {
-            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, gen)
-            def transformClass = classOf[FaultInstrumentationTransform]
-          })
-      case c => throw new Exception(s"Type not implemented for: $c")
-    }
+  /** Make a specific signal run-time fault injectable
+    *
+    * @param component the component to make injectable
+    * @param id the name of the scan chain used to configure injections into this component
+    * @param gen a class of [[Injector]] to use for fault injections
+    */
+  def isFaulty(component: Data, id: String, gen: Class[_ <: Injector]): Unit = {
+    chisel3.experimental.annotate(
+      new ChiselAnnotation with RunFirrtlTransform {
+        def toFirrtl = FaultInjectionAnnotation(component.toNamed, id, gen)
+        def transformClass = classOf[FaultInstrumentationTransform]
+      })
   }
 }
