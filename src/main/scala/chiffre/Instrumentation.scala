@@ -15,7 +15,6 @@ package chiffre
 
 import chisel3._
 import chisel3.core.BaseModule
-import chisel3.internal.InstanceId
 import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform}
 import chiffre.passes.{ScanChainAnnotation, FaultInjectionAnnotation,
   ScanChainTransform, FaultInstrumentationTransform}
@@ -50,18 +49,12 @@ trait ChiffreInjector { this: Injector =>
   val scanId: String
 }
 
-trait ChiffreInjectee extends BaseModule {
-  self: BaseModule =>
-
-  def isFaulty[T <: Injector](component: InstanceId, id: String, gen: Class[_ <: Injector]): Unit = {
-    component match {
-      case c: Data =>
-        chisel3.experimental.annotate(
-          new ChiselAnnotation with RunFirrtlTransform {
-            def toFirrtl = FaultInjectionAnnotation(c.toNamed, id, gen)
-            def transformClass = classOf[FaultInstrumentationTransform]
-          })
-      case c => throw new Exception(s"Type not implemented for: $c")
-    }
+trait ChiffreInjectee { this: BaseModule =>
+  def isFaulty(component: Data, id: String, gen: Class[_ <: Injector]): Unit = {
+    chisel3.experimental.annotate(
+      new ChiselAnnotation with RunFirrtlTransform {
+        def toFirrtl = FaultInjectionAnnotation(component.toNamed, id, gen)
+        def transformClass = classOf[FaultInstrumentationTransform]
+      })
   }
 }
