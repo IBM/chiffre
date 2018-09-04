@@ -59,7 +59,7 @@ You can build an emulator with the correct configuration using the following (no
 git clone https://github.com/freechipsproject/rocket-chip $ROCKETCHIP_DIR
 cd $ROCKETCHIP_DIR
 git clone https://github.com/ibm/chiffre chiffre
-git apply chiffre/patches/rocket-chip-fault-cycle.patch
+git apply le-chiffre/patches/rocket-chip-fault-cycle.patch
 cd emulator
 make CONFIG=LeChiffreConfig ROCKETCHIP_ADDONS="chiffre/le-chiffre chiffre"
 ```
