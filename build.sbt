@@ -38,6 +38,10 @@ addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.5.6" cross CrossVers
 assemblyJarName in assembly := "chiffre.jar"
 test in assembly := {}
 assemblyOutputPath in assembly := file("utils/bin/chiffre.jar")
+assemblyMergeStrategy in assembly := {
+ case PathList("META-INF", _*) => MergeStrategy.discard
+ case _                        => MergeStrategy.first
+}
 
 val defaultVersions = Map("chisel3" -> "3.5.6",
                           "chisel-iotesters" -> "2.5.6")
