@@ -14,7 +14,6 @@
 package chiffre
 
 import chisel3._
-import chisel3.core.BaseModule
 
 class ScanIo extends Bundle {
   val clk = Input(Bool())
@@ -23,7 +22,7 @@ class ScanIo extends Bundle {
   val out = Output(Bool())
 }
 
-trait HasScanState { this: BaseModule =>
+trait HasScanState { this: RawModule =>
   val info: InjectorInfo
 }
 

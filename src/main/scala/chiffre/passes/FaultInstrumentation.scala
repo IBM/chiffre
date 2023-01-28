@@ -16,10 +16,12 @@ package chiffre.passes
 import chiffre.inject.Injector
 import chiffre.util.removeZeroWidth
 import chisel3.experimental.{annotate, ChiselAnnotation}
+import chisel3.stage.{ChiselGeneratorAnnotation, CircuitSerializationAnnotation}
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.{PassException, ToWorkingIR}
 import firrtl.passes.wiring.SinkAnnotation
+import firrtl.stage.FirrtlCircuitAnnotation
 import firrtl.annotations.{Annotation, ComponentName, ModuleName, CircuitName}
 import firrtl.annotations.AnnotationUtils._
 import scala.collection.mutable
@@ -85,15 +87,17 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
   private def inlineCompile(gen: () => chisel3.Module, ns: Option[Namespace] = None): CircuitState = {
     def genName(name: String, n: Option[Namespace] = None): String = n.map(_.newName(name)).getOrElse(name)
 
-    val options = new ExecutionOptionsManager("Fault Instrumentation Inline") with HasFirrtlOptions
-        with chisel3.HasChiselExecutionOptions {
-      chiselOptions = new chisel3.ChiselExecutionOptions(runFirrtlCompiler = false )
-    }
-    val (chirrtl: Circuit, inlineAnnos: AnnotationSeq) = chisel3.Driver.execute(options, gen) match {
-      case chisel3.ChiselExecutionSuccess(Some(chisel3.internal.firrtl.Circuit(_,_,annos)),ast,_) =>
-        (Parser.parse(ast), AnnotationSeq(annos.map(_.toFirrtl)))
-      case chisel3.ChiselExecutionFailure(m) =>
-        throw new FaultInstrumentationException(s"Chisel inline compilation failed with '$m'")
+    val (chirrtl: firrtl.ir.Circuit, inlineAnnos: AnnotationSeq) = {
+      val outputAnnotations = (new chisel3.stage.ChiselStage).execute(
+        args = Array("--no-run-firrtl"),
+        annotations = Seq(ChiselGeneratorAnnotation(gen))
+      )
+      val (circuitAnnos, otherAnnos) = outputAnnotations.partition {
+        case _: FirrtlCircuitAnnotation => true
+        case _ => false
+      }
+      require(circuitAnnos.size == 1)
+      (circuitAnnos.head.asInstanceOf[FirrtlCircuitAnnotation].circuit, AnnotationSeq(otherAnnos))
     }
     val midFirrtl = (new MiddleFirrtlCompiler)
       .compileAndEmit(CircuitState(chirrtl, ChirrtlForm))
@@ -162,7 +166,7 @@ class FaultInstrumentation(compMap: Map[String, Seq[(ComponentName, String, Clas
             val faulty = DefWire(NoInfo, rename, t)
             val data = fromBits(WRef(faulty).mapType(removeZeroWidth.apply), toExp(s"${inst.name}.io.out")) match {
               case Block(stmts: Seq[Statement]) =>
-                stmts :+ Connect(NoInfo, toExp(s"${inst.name}.io.in"), toBits(WRef(comp.name, t, RegKind, UNKNOWNGENDER).mapType(removeZeroWidth.apply)))
+                stmts :+ Connect(NoInfo, toExp(s"${inst.name}.io.in"), toBits(WRef(comp.name, t, RegKind, UnknownFlow).mapType(removeZeroWidth.apply)))
             }
             val x = mods(m.name)
             mods(m.name) = x.copy(

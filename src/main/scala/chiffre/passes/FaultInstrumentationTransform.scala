@@ -16,7 +16,7 @@ package chiffre.passes
 import chiffre.inject.Injector
 
 import firrtl._
-import firrtl.passes.{ToWorkingIR, InferTypes, Uniquify, ExpandWhens, CheckInitialization, ResolveKinds, ResolveGenders,
+import firrtl.passes.{ToWorkingIR, InferTypes, Uniquify, ExpandWhens, CheckInitialization, ResolveKinds, ResolveFlows,
   CheckTypes}
 import firrtl.passes.wiring.WiringTransform
 import firrtl.annotations.{SingleTargetAnnotation, ComponentName}
@@ -46,7 +46,7 @@ class FaultInstrumentationTransform extends Transform {
     CheckInitialization,
     InferTypes,
     ResolveKinds,
-    ResolveGenders,
+    ResolveFlows,
     CheckTypes,
     new ScanChainTransform,
     new WiringTransform )
