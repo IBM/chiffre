@@ -15,6 +15,7 @@ package chiffreTests
 
 import chisel3._
 import chisel3.iotesters.ChiselFlatSpec
+import chisel3.stage.ChiselStage
 import chiffre.{InjectorInfo, ChiffreController, ChiffreInjector, ChiffreInjectee}
 import chiffre.passes.{ScanChainAnnotation, ScanChainDescriptionAnnotation, FaultInjectionAnnotation}
 import chiffre.inject.{Injector, LfsrInjector32}
@@ -39,14 +40,14 @@ class InstrumentationSpec extends ChiselFlatSpec {
   behavior of "ChiffreController annotation"
 
   it should "emit a ScanChainAnnotation" in {
-    val circuit = Driver.elaborate(() => new DummyController)
+    val circuit = ChiselStage.elaborate(new DummyController)
     circuit.annotations.map(_.toFirrtl).collect{ case a: ScanChainAnnotation => a }.size should be (1)
   }
 
   behavior of "Chiffree Injectee annotation"
 
   it should "emit an annotation" in {
-    val circuit = Driver.elaborate(() => new DummyInjectee)
+    val circuit = ChiselStage.elaborate(new DummyInjectee)
     circuit.annotations.map(_.toFirrtl).collect{ case a: FaultInjectionAnnotation => a }.size should be (1)
   }
 }

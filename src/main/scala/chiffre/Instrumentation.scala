@@ -14,14 +14,13 @@
 package chiffre
 
 import chisel3._
-import chisel3.core.BaseModule
 import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform}
 import chiffre.passes.{ScanChainAnnotation, FaultInjectionAnnotation,
   ScanChainTransform, FaultInstrumentationTransform}
 import chiffre.inject.Injector
 import chiffre.passes.ScanChainDescriptionAnnotation
 
-trait ChiffreController { this: BaseModule =>
+trait ChiffreController { this: RawModule =>
   /** Scan Chain Identifier used to differentiate scan chains. This must
     * be a `lazy val`. */
   def scanId: String
@@ -44,7 +43,7 @@ trait ChiffreInjector { this: Injector =>
   val scanId: String
 }
 
-trait ChiffreInjectee { this: BaseModule =>
+trait ChiffreInjectee { this: RawModule =>
 
   /** Make a specific signal run-time fault injectable
     *

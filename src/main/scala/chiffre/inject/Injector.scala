@@ -15,7 +15,6 @@ package chiffre.inject
 
 import chisel3._
 import chisel3.util.Cat
-import chisel3.core.BaseModule
 import chisel3.experimental.{ChiselAnnotation, annotate, RunFirrtlTransform}
 import chiffre.{ScanIo, HasScanState}
 

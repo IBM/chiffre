@@ -128,7 +128,7 @@ class ScanChainTransform extends Transform {
     * @todo order the scan chain based on distance
     */
   def execute(state: CircuitState): CircuitState = {
-    val targetDir = new File(state.annotations.collectFirst{ case a: TargetDirAnnotation => a.value }.getOrElse("."))
+    val targetDir = new File(state.annotations.collectFirst{ case a: TargetDirAnnotation => a.directory }.getOrElse("."))
     val myAnnos = state.annotations.collect{ case a: ScanAnnos => a }
     myAnnos match {
       case Nil => state
